@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:fl_chart/fl_chart.dart'; // Make sure fl_chart package is in pubspec.yaml
+import 'package:fl_chart/fl_chart.dart';
 
 class StudentReportScreen extends StatefulWidget {
   final int teacherId;
@@ -85,7 +85,6 @@ class _StudentReportScreenState extends State<StudentReportScreen> {
       return const Center(child: Text('No attendance records available.'));
     }
 
-    // Calculate class-wide averages for overall pie chart
     double totalPresentPct = 0;
     double totalLatePct = 0;
     for (var r in _reports) {
@@ -99,7 +98,6 @@ class _StudentReportScreenState extends State<StudentReportScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // --- Overall Summary Pie Chart Card ---
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -157,15 +155,12 @@ class _StudentReportScreenState extends State<StudentReportScreen> {
             ),
           ),
         ),
-
         const SizedBox(height: 20),
         const Text(
           'Student Breakdowns',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
-
-        // --- Individual Student Stats Cards ---
         ..._reports.map((student) {
           final double pPresent = (student['percentage_of_present'] ?? 0).toDouble();
           final double pLate = (student['percentage_of_late'] ?? 0).toDouble();

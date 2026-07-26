@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'attendance_history_screen.dart';
-
+import 'student_report.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final int teacherId;
@@ -144,6 +144,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         title: const Text('Attendance', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.insert_chart_outlined, color: Colors.white),
+            tooltip: 'Student Report',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StudentReportScreen(teacherId: widget.teacherId),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
             tooltip: 'View History',
