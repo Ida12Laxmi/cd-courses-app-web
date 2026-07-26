@@ -701,23 +701,21 @@ def get_attendance_dates(request,teacher_id):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def get_teacher_students_report(request,teacher_id):
+def get_teacher_students_report(request, teacher_id):
     """Calculates attendance percentage for all students under a teacher."""
     students = Student.objects.filter(teacher_id=teacher_id).annotate(
-        total=Count('attendance_set'),
-        present=Count('attendance_set', filter=Q(attendance_set__status='present')),
-        late=Count('attendance_set', filter=Q(attendance_set__status='late')),
-        absent=Count('attendance_set',filter=Q(attendance_set__status='absent')),
+        total=Count('attendance_records'),
+        present=Count('attendance_records', filter=Q(attendance_records__status='present')),
+        late=Count('attendance_records', filter=Q(attendance_records__status='late')),
+        absent=Count('attendance_records', filter=Q(attendance_records__status='absent')),
     )
 
     report = []
-    
-    # 2. Build response list
     for student in students:
         total = student.total
         present = student.present
         late = student.late
-        absent=student.absent
+        absent = student.absent
 
         perpre = round((present / total * 100), 1) if total > 0 else 0.0
         prelate = round((late / total * 100), 1) if total > 0 else 0.0
@@ -731,7 +729,7 @@ def get_teacher_students_report(request,teacher_id):
             'late_days': late,
             'percentage_of_present': perpre,
             'percentage_of_late': prelate,
-            'percentage_of_absent':preabs
+            'percentage_of_absent': preabs
         })
 
     return Response(report, status=status.HTTP_200_OK)
