@@ -119,7 +119,7 @@ class Teacherdashboard extends StatelessWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () {
-                        if (item.type == 'messages' || item.type == 'leave and delays') {
+                        if (item.type == 'messages' || item.type == 'leave and delays' || item.type == 'student councelling') {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
