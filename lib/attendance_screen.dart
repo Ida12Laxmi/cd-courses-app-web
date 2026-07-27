@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'attendance_history_screen.dart';
-import 'student_report.dart';
+import 'student_list_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final int teacherId;
@@ -151,7 +150,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => StudentReportScreen(teacherId: widget.teacherId),
+                  builder: (_) => StudentListScreen(teacherId: widget.teacherId, attendanceReportMode: true),
                 ),
               );
             },
@@ -163,7 +162,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => AttendanceHistoryScreen(teacherId: widget.teacherId),
+                  builder: (_) => StudentListScreen(teacherId: widget.teacherId, attendanceHistoryMode: true),
                 ),
               );
             },

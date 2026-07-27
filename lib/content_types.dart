@@ -21,6 +21,6 @@ const List<ContentTypeItem> contentTypes = [
   ContentTypeItem('Leave and Delays', 'leave and delays', Icons.event_busy),
   ContentTypeItem('Messages', 'messages', Icons.message),
   ContentTypeItem('Time Table', 'time table', Icons.schedule),
-  ContentTypeItem('Student Councelling', 'student councelling', Icons.support_agent),
+  ContentTypeItem('Student Counseling', 'student councelling', Icons.support_agent),
   ContentTypeItem('Billing', 'billing', Icons.receipt_long),
 ];

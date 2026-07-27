@@ -4,11 +4,27 @@ import 'package:http/http.dart' as http;
 import 'student_register.dart';
 import 'student_detail_screen.dart';
 import 'chat_message.dart';
+import 'student_report.dart';
+import 'attendance_history_screen.dart';
 
 class StudentListScreen extends StatefulWidget {
   final int teacherId;
+  // When set, tapping a student jumps straight into a chat thread for this
+  // topic ('messages' or 'leave and delays') instead of the student's
+  // Assignments/Project/Chat menu.
   final String? chatTopic;
-  const StudentListScreen({super.key, required this.teacherId, this.chatTopic});
+  // When true, tapping a student opens their individual attendance report
+  // or history instead of the chat/assignments/project menu.
+  final bool attendanceReportMode;
+  final bool attendanceHistoryMode;
+
+  const StudentListScreen({
+    super.key,
+    required this.teacherId,
+    this.chatTopic,
+    this.attendanceReportMode = false,
+    this.attendanceHistoryMode = false,
+  });
 
   @override
   State<StudentListScreen> createState() => _StudentListScreenState();
@@ -196,32 +212,53 @@ class _StudentListScreenState extends State<StudentListScreen> {
                   backgroundColor: _levelColor(level),
                   padding: EdgeInsets.zero,
                 ),
-               onTap: () {
-  if (widget.chatTopic != null) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          topicTitle: widget.chatTopic!,
-          currentUserType: 'teacher',
-          teacherId: widget.teacherId,
-          studentId: student['sid'],
-        ),
-      ),
-    );
-  } else {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StudentDetailScreen(
-          studentId: student['sid'],
-          studentName: student['username'] ?? '',
-          teacherId: widget.teacherId,
-        ),
-      ),
-    );
-  }
-},
+                onTap: () {
+                  if (widget.chatTopic != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          topicTitle: widget.chatTopic!,
+                          currentUserType: 'teacher',
+                          teacherId: widget.teacherId,
+                          studentId: student['sid'],
+                        ),
+                      ),
+                    );
+                  } else if (widget.attendanceReportMode) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentAttendanceReportScreen(
+                          studentId: student['sid'],
+                          studentName: student['username'] ?? '',
+                        ),
+                      ),
+                    );
+                  } else if (widget.attendanceHistoryMode) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentAttendanceHistoryScreen(
+                          teacherId: widget.teacherId,
+                          studentId: student['sid'],
+                          studentName: student['username'] ?? '',
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentDetailScreen(
+                          studentId: student['sid'],
+                          studentName: student['username'] ?? '',
+                          teacherId: widget.teacherId,
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
               const Divider(height: 1),
               Row(

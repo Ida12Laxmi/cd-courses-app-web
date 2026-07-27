@@ -66,9 +66,9 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _error;
   File? _pickedFile;
 
-  // API calls (login, students, quiz, etc.) live under /accounts/
+  // API calls live under /accounts/
   static const String _apiBaseUrl = "http://192.168.0.196:8000/accounts";
-  // Uploaded files (media) are served from the server root, not under /accounts/
+  // Uploaded files (media) are served from the server root
   static const String _mediaBaseUrl = "http://192.168.0.196:8000";
 
   @override
@@ -187,17 +187,23 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _toggleReaction(ChatMessage message, String emoji) async {
+    // 1. Optimistic UI update for immediate response
     setState(() {
-      if (message.reactions.contains(emoji)) {
-        message.reactions.remove(emoji);
+      final existingIndex = message.reactions.indexOf(emoji);
+
+      if (existingIndex != -1) {
+        // Tapping the same emoji removes it (toggle off)
+        message.reactions.removeAt(existingIndex);
       } else {
+        // Replace any existing reaction with the new one
+        message.reactions.clear();
         message.reactions.add(emoji);
       }
     });
 
     final url = Uri.parse('$_apiBaseUrl/messages/react/');
     try {
-      await http.post(
+      final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -206,8 +212,23 @@ class _ChatScreenState extends State<ChatScreen> {
           'emoji': emoji,
         }),
       );
+
+      // 2. Sync state with the ground-truth list returned by Django
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> updatedReactions = data['reactions'] ?? [];
+
+        if (mounted) {
+          setState(() {
+            message.reactions.clear();
+            for (var r in updatedReactions) {
+              message.reactions.add(r['emoji'].toString());
+            }
+          });
+        }
+      }
     } catch (e) {
-      print("Error toggling reaction: $e");
+      debugPrint("Error toggling reaction: $e");
     }
   }
 
@@ -326,12 +347,6 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.forward),
-              title: const Text('Forward'),
-              subtitle: const Text('Coming soon'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
               leading: const Icon(Icons.push_pin_outlined),
               title: const Text('Pin'),
               subtitle: const Text('Coming soon'),
@@ -357,19 +372,63 @@ class _ChatScreenState extends State<ChatScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 12),
+              
+              // Reaction Emojis Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: ['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) {
+                  final isSelected = message.reactions.contains(emoji);
                   return GestureDetector(
                     onTap: () {
                       Navigator.pop(ctx);
                       _toggleReaction(message, emoji);
                     },
-                    child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.deepPurple.shade50 : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                    ),
                   );
                 }).toList(),
               ),
-              const Divider(height: 24),
+
+              // Messenger-like "Tap to remove" section
+              if (message.reactions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    // Pass current emoji to toggle it off
+                    _toggleReaction(message, message.reactions.first);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          message.reactions.first,
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "Tap to remove reaction",
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              const Divider(height: 16),
               if (message.text.isNotEmpty)
                 ListTile(
                   leading: const Icon(Icons.copy),
@@ -479,8 +538,11 @@ class _ChatScreenState extends State<ChatScreen> {
                                                       child: Row(
                                                         mainAxisSize: MainAxisSize.min,
                                                         children: [
-                                                          Icon(Icons.insert_drive_file,
-                                                              size: 18, color: isMe ? Colors.white : Colors.deepPurple),
+                                                          Icon(
+                                                            Icons.insert_drive_file,
+                                                            size: 18,
+                                                            color: isMe ? Colors.white : Colors.deepPurple,
+                                                          ),
                                                           const SizedBox(width: 6),
                                                           Flexible(
                                                             child: Text(
@@ -508,19 +570,32 @@ class _ChatScreenState extends State<ChatScreen> {
                                               ],
                                             ),
                                           ),
+
+                                          // TAPPABLE REACTION BADGE
                                           if (msg.reactions.isNotEmpty)
                                             Positioned(
                                               bottom: -10,
                                               right: isMe ? null : -5,
                                               left: isMe ? -5 : null,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2)],
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  // Directly tap reaction on bubble to remove it
+                                                  _toggleReaction(msg, msg.reactions.first);
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    boxShadow: const [
+                                                      BoxShadow(color: Colors.black12, blurRadius: 2)
+                                                    ],
+                                                  ),
+                                                  child: Text(
+                                                    msg.reactions.join(' '),
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
                                                 ),
-                                                child: Text(msg.reactions.join(' '), style: const TextStyle(fontSize: 12)),
                                               ),
                                             ),
                                         ],
