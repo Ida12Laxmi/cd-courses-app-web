@@ -88,7 +88,8 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ['message_id', 'conversation', 'sender_type', 'text', 'attachment', 'created_at', 'reactions']
 
 class AttendanceSerializer(serializers.ModelSerializer):
-    model=Attendance
-    fields = ['aid', 'student', 'teacher', 'date', 'status', 'remarks', 'created_at']
+    class Meta:
+        model=Attendance
+        fields = ['aid', 'student', 'teacher', 'date', 'status', 'remarks', 'created_at']
 
 

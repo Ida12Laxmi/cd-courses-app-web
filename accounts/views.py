@@ -608,7 +608,11 @@ def toggle_reaction(request):
             reaction.emoji=emoji
             reaction.save()
 
-    return Response({'status': 'success'}, status=status.HTTP_200_OK)
+    updated_reactions = MessageReaction.objects.filter(message_id=message_id)
+    return Response({
+        'status': 'success',
+        'reactions': ReactionSerializer(updated_reactions, many=True).data,
+    }, status=status.HTTP_200_OK)
 
 @api_view(['PATCH'])
 @permission_classes([AllowAny])
