@@ -189,7 +189,7 @@ class _StudentAssignmentsScreenState extends State<StudentAssignmentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.studentName} — Assignments')),
+      appBar: AppBar(title: Text('${widget.studentName} — Assignments'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: RefreshIndicator(onRefresh: _fetchSubmissions, child: _buildBody()),
     );
   }

@@ -157,7 +157,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     final bool isVideo = widget.contentType == 'video';
 
     return Scaffold(
-      appBar: AppBar(title: Text('${_isEditing ? 'Edit' : 'Add'} ${widget.title}')),
+      appBar: AppBar(title: Text('${_isEditing ? 'Edit' : 'Add'} ${widget.title}'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(

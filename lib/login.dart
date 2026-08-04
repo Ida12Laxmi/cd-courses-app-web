@@ -29,6 +29,7 @@ class _LoginState extends State<Login>{
   
   final TextEditingController email=TextEditingController();
   final TextEditingController password=TextEditingController();
+  bool _isObscured = true;
 
   bool _isLoading = false;
   
@@ -93,7 +94,7 @@ class _LoginState extends State<Login>{
       body: Column(
         children: [
           Container(
-            color: const Color(0xFF212529),
+            color: const Color(0xFF013768),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -116,7 +117,7 @@ class _LoginState extends State<Login>{
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 450), // Keeps form centered on web
                 child: Card(
-                  color:Colors.orange,
+                  color:Colors.white,
                   elevation: 4,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   margin: const EdgeInsets.all(20),
@@ -132,8 +133,22 @@ class _LoginState extends State<Login>{
                         const SizedBox(height: 20),
                         TextField(
                           controller:password,
-                          decoration: const InputDecoration(labelText: 'Password'),
-                          obscureText: true,
+                          //decoration: const InputDecoration(labelText: 'Password',),
+                          obscureText: _isObscured,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _isObscured ? Icons.visibility : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isObscured = !_isObscured;
+                                });
+                              },
+                            ),
+                          ),
+                          
                         ),
                         const SizedBox(height: 30),
                         SizedBox(
@@ -141,7 +156,7 @@ class _LoginState extends State<Login>{
                           height: 50,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0A838A),
+                              backgroundColor: const Color.fromRGBO(246, 148, 36, 1), // Dark red background
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                              onPressed: () async {
@@ -158,7 +173,7 @@ class _LoginState extends State<Login>{
                               Navigator.pushNamed(context, '/reg'); // Navigate to login page
                             },
                             child:
-                          const Text("Don't have an account? Register here", style: TextStyle(color: Colors.blue, decoration:TextDecoration.underline,)), 
+                          const Text("Don't have an account? Register here", style: TextStyle(color: Color(0xFF0B8081), decoration:TextDecoration.underline,)), 
                           )
                         
                       ],

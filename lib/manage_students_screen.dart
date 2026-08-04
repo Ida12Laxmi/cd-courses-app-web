@@ -16,7 +16,7 @@ class ManageStudentsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF212529),
+       backgroundColor: const Color(0xFF013768),
         title: const Text('Manage Students', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -53,12 +53,12 @@ class ManageStudentsScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(item['icon'] as IconData, size: 40, color: const Color(0xFF212529)),
+                    Icon(item['icon'] as IconData, size: 40, color: const Color(0xFF0B8081)),
                     const SizedBox(height: 10),
                     Text(
                       item['label'] as String,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF013768)),
                     ),
                   ],
                 ),

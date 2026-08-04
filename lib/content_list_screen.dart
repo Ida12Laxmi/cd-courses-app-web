@@ -6,14 +6,20 @@ import 'package:url_launcher/url_launcher.dart';
 
 class ContentListScreen extends StatefulWidget {
   final int teacherId;
+  final int studentId;
+  final String studentName;
   final String contentType;
   final String title;
+  final String? userRole; // 'teacher' or 'student'
 
   const ContentListScreen({
     super.key,
     required this.teacherId,
+    required this.studentId,
+    required this.studentName,
     required this.contentType,
     required this.title,
+    this.userRole = 'student',
   });
 
   @override
@@ -106,8 +112,6 @@ class _ContentListScreenState extends State<ContentListScreen> {
           teacherId: widget.teacherId,
           contentType: widget.contentType,
           title: widget.title,
-          // Pass the existing item so the form can pre-fill fields
-          // and know it should PATCH instead of POST.
           existingItem: item,
         ),
       ),
@@ -147,7 +151,7 @@ class _ContentListScreenState extends State<ContentListScreen> {
   }
 
   Future<void> _deleteItem(dynamic item) async {
-    final id = item['id'] ?? item['cid']; // adjust key to match your model's PK field name
+    final id = item['id'] ?? item['cid'];
     if (id == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Missing item id, cannot delete')),
@@ -185,7 +189,7 @@ class _ContentListScreenState extends State<ContentListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(title: Text(widget.title),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: RefreshIndicator(
         onRefresh: _fetchContent,
         child: _buildBody(),
@@ -221,7 +225,7 @@ class _ContentListScreenState extends State<ContentListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_error!),
+            Text(_error!, style: const TextStyle(color: Color(0xFF013768))),
             const SizedBox(height: 12),
             ElevatedButton(onPressed: _fetchContent, child: const Text('Retry')),
           ],
@@ -233,7 +237,8 @@ class _ContentListScreenState extends State<ContentListScreen> {
       return ListView(
         children: const [
           SizedBox(height: 100),
-          Center(child: Text('Nothing uploaded yet. Tap + to add.')),
+          Center(child: Text('Nothing uploaded yet. Tap + to add.',style: TextStyle(color: Color(0xFF013768)),),
+          ),
         ],
       );
     }
@@ -247,17 +252,17 @@ class _ContentListScreenState extends State<ContentListScreen> {
             item['video_link'] != null && item['video_link'].toString().isNotEmpty;
 
         return Card(
-          color:Colors.orange,
+          color: Colors.white,
           margin: const EdgeInsets.only(bottom: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ListTile(
-                textColor: Colors.white,
-                leading: Icon(isVideoLink ? Icons.link : Icons.insert_drive_file),
-                title: Text(item['title'] ?? ''),
-                subtitle: Text(item['description'] ?? ''),
-                trailing: const Icon(Icons.chevron_right),
+                textColor: Color(0xFF0B8081),
+                leading: Icon(isVideoLink ? Icons.link : Icons.insert_drive_file, color:const Color(0xFF0B8081)),
+                title: Text(item['title'] ?? '',style: const TextStyle(color: Color(0xFF013768), fontWeight: FontWeight.bold),),
+                subtitle: Text(item['description'] ?? '',style: const TextStyle(color: Color(0xFF013768)),),
+                trailing: Icon(Icons.chevron_right,color: const Color(0xFF0B8081),),
                 onTap: () => _openItem(item),
               ),
               const Divider(height: 1),
@@ -266,9 +271,8 @@ class _ContentListScreenState extends State<ContentListScreen> {
                 children: [
                   TextButton.icon(
                     onPressed: () => _editItem(item),
-                    icon: const Icon(Icons.edit, size: 18,color: Colors.white,),
-                    label: const Text('Update',style: TextStyle(color:Colors.white),),
-                    
+                    icon: const Icon(Icons.edit, size: 18, color: Colors.black),
+                    label: const Text('Update', style: TextStyle(color: Colors.black)),
                   ),
                   TextButton.icon(
                     onPressed: () => _confirmDelete(item),

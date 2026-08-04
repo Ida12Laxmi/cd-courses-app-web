@@ -29,6 +29,7 @@ class Registration extends StatefulWidget {
 class _RegistrationState extends State<Registration> {
   String? _selectedGender = "";
   bool _isLoading = false;
+  bool _isObscured = true;
 
   final TextEditingController username = TextEditingController();
   final TextEditingController email = TextEditingController();
@@ -109,7 +110,7 @@ class _RegistrationState extends State<Registration> {
       body: Column(
         children: [
           Container(
-            color: const Color(0xFF212529),
+            color: const Color(0xFF013768),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -134,6 +135,7 @@ class _RegistrationState extends State<Registration> {
                   constraints: const BoxConstraints(maxWidth: 450),
                   child: Card(
                     elevation: 4,
+                    color:Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     margin: const EdgeInsets.all(20),
                     child: Padding(
@@ -240,10 +242,20 @@ class _RegistrationState extends State<Registration> {
                           const SizedBox(height: 15),
                           TextField(
                             controller: password,
-                            obscureText: true,
-                            decoration: const InputDecoration(
+                            obscureText: _isObscured,
+                            decoration: InputDecoration(
                               labelText: 'Password',
                               border: OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                              icon: Icon(
+                                _isObscured ? Icons.visibility : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isObscured = !_isObscured;
+                                });
+                              },
+                            ),
                               filled: true,
                               fillColor: Color(0xFFE8F0FE),
                             ),
@@ -254,7 +266,8 @@ class _RegistrationState extends State<Registration> {
                             height: 50,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF007BFF),
+                                backgroundColor: const Color.fromRGBO(246, 148, 36, 1),
+                                
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
                               ),
                               onPressed: _isLoading
@@ -274,7 +287,7 @@ class _RegistrationState extends State<Registration> {
                             },
                             child: const Text(
                               "Already have an account? Login here",
-                              style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline),
+                              style: TextStyle(color: Color(0xFF0B8081), decoration: TextDecoration.underline),
                             ),
                           )
                         ],

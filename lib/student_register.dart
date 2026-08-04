@@ -6,6 +6,7 @@ class AddStudentForm extends StatefulWidget {
   final int teacherId;
   // Pass an existing student to edit them instead of creating a new one.
   final dynamic existingStudent;
+  
 
   const AddStudentForm({super.key, required this.teacherId, this.existingStudent});
 
@@ -26,7 +27,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
 
   String _level = 'Basic';
   bool _isLoading = false;
-
+  bool _isObscured = true;
   bool get _isEditing => widget.existingStudent != null;
 
   dynamic get _existingId => widget.existingStudent?['sid'];
@@ -127,43 +128,44 @@ class _AddStudentFormState extends State<AddStudentForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? 'Edit Student' : 'Add Student')),
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Student' : 'Add Student'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: ListView(
+        child: ListView( 
           children: [
             TextField(
               controller: usernameController,
-              decoration: const InputDecoration(labelText: 'Student Name', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Student Name', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Phone (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: addressController,
-              decoration: const InputDecoration(labelText: 'Address (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: subjectController,
-              decoration: const InputDecoration(labelText: 'Subject (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Subject', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 20),
             const Text('Level', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _level,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              decoration: const InputDecoration(border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
               items: _levels
                   .map((lvl) => DropdownMenuItem(value: lvl, child: Text(lvl)))
                   .toList(),
@@ -172,24 +174,39 @@ class _AddStudentFormState extends State<AddStudentForm> {
             const SizedBox(height:8),
             TextField(
                             controller: password,
-                            obscureText: true,
-                            decoration: const InputDecoration(
+                            obscureText: _isObscured,
+                            decoration: InputDecoration(
                               labelText: 'Password',
                               border: OutlineInputBorder(),
-                              filled: true,
-                              fillColor: Color(0xFFE8F0FE),
+                              suffixIcon: IconButton(
+                              icon: Icon(
+                                _isObscured ? Icons.visibility : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isObscured = !_isObscured;
+                                });
+                              },
+                            ),
+                            fillColor: Color(0xFFF5F5F5), filled: true,
                             ),
                           ),
             const SizedBox(height: 8),
             const Text(
               'You can change this level anytime later from the student list.',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(color: Colors.orange, fontSize: 12),
             ),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
               height: 50,
+            
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color.fromRGBO(246, 148, 36, 1),
+                                
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                              ),
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)

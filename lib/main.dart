@@ -18,7 +18,8 @@ class MyApp extends StatelessWidget {
       
       theme: ThemeData(
      
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+       // colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        cardTheme: CardThemeData(color: Colors.white),
       ),
       home: const Registration(), // Set the home page to the registration page
       initialRoute: '/login', // Set the initial route to the registration page

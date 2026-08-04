@@ -55,7 +55,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.quizTitle} — Results')),
+      appBar: AppBar(title: Text('${widget.quizTitle} — Results'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: RefreshIndicator(onRefresh: _fetchResults, child: _buildBody()),
     );
   }

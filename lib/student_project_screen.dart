@@ -76,7 +76,7 @@ class _StudentProjectsScreenState extends State<StudentProjectsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.studentName} — Projects')),
+      appBar: AppBar(title: Text('${widget.studentName} — Projects'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: RefreshIndicator(onRefresh: _fetchSubmissions, child: _buildBody()),
     );
   }

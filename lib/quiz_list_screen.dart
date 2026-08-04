@@ -132,7 +132,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Quizzes')),
+      appBar: AppBar(title: const Text('My Quizzes'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: RefreshIndicator(
         onRefresh: _fetchQuizzes,
         child: _buildBody(),

@@ -138,6 +138,7 @@ class _QuizQuestionsScreenState extends State<QuizQuestionsScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.quizTitle ?? _quiz?['title'] ?? 'Quiz Questions'),
+          backgroundColor: const Color(0xFF013768),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, _questionsChanged),

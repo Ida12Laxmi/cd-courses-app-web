@@ -6,6 +6,7 @@ import 'student_detail_screen.dart';
 import 'chat_message.dart';
 import 'student_report.dart';
 import 'attendance_history_screen.dart';
+import 'students_bill_screen.dart';
 
 class StudentListScreen extends StatefulWidget {
   final int teacherId;
@@ -17,6 +18,8 @@ class StudentListScreen extends StatefulWidget {
   // or history instead of the chat/assignments/project menu.
   final bool attendanceReportMode;
   final bool attendanceHistoryMode;
+  // When true, tapping a student opens their Bills screen instead.
+  final bool billingMode;
 
   const StudentListScreen({
     super.key,
@@ -24,6 +27,7 @@ class StudentListScreen extends StatefulWidget {
     this.chatTopic,
     this.attendanceReportMode = false,
     this.attendanceHistoryMode = false,
+    this.billingMode = false,
   });
 
   @override
@@ -147,7 +151,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Students')),
+      appBar: AppBar(title: const Text('Students'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: RefreshIndicator(onRefresh: _fetchStudents, child: _buildBody()),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -213,7 +217,18 @@ class _StudentListScreenState extends State<StudentListScreen> {
                   padding: EdgeInsets.zero,
                 ),
                 onTap: () {
-                  if (widget.chatTopic != null) {
+                  if (widget.billingMode) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentBillsScreen(
+                          teacherId: widget.teacherId,
+                          studentId: student['sid'],
+                          studentName: student['username'] ?? '',
+                        ),
+                      ),
+                    );
+                  } else if (widget.chatTopic != null) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(

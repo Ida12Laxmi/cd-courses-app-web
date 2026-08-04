@@ -151,7 +151,7 @@ class _AddQuestionFormState extends State<AddQuestionForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? 'Edit Question' : 'Add Question')),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Question' : 'Add Question'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(

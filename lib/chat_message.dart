@@ -477,8 +477,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.topicTitle),
-        backgroundColor: Colors.purple.shade50,
-        foregroundColor: Colors.black,
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
         elevation: 1,
       ),
       body: _isLoading
