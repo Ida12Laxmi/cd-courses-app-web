@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 
 class Teacher(models.Model):
   tid = models.AutoField(primary_key=True, db_column='tid')
@@ -197,3 +199,76 @@ class Attendance(models.Model):
 
     class Meta:
         unique_together = ('student', 'date')
+
+#may be i should remove
+
+
+class Bill(models.Model):
+    STATUS_CHOICES = [
+        ('unpaid', 'Unpaid'),
+        ('pending', 'Pending Review'),
+        ('paid', 'Paid'),
+        ('rejected', 'Rejected'),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ('esewa', 'eSewa'),
+        ('khalti', 'Khalti'),
+        ('mobile_banking', 'Mobile Banking'),
+        ('cash', 'Cash'),
+    ]
+
+    bid = models.AutoField(primary_key=True)
+    teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='bills')
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='bills')
+    title = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    due_date = models.DateField(null=True, blank=True)
+    remarks = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unpaid')
+
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, blank=True, null=True)
+    transaction_code = models.CharField(max_length=100, blank=True, null=True)
+    transaction_uuid = models.CharField(max_length=100, blank=True, null=True)
+    payment_screenshot = models.ImageField(upload_to='bill_screenshots/', blank=True, null=True)
+    paid_date = models.DateField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.student} ({self.status})"
+
+class TeacherPaymentQr(models.Model):
+    teacher = models.OneToOneField('Teacher', on_delete=models.CASCADE, related_name='payment_qr')
+    payment_qr_file = models.FileField(upload_to='teacher_qr/')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"QR for {self.teacher}"
+
+class Notification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('assignment_submitted', 'Assignment Submitted'),
+        ('project_submitted', 'Project Submitted'),
+        ('quiz_submitted', 'Quiz Submitted'),
+        ('bill_generated', 'Bill Generated'),
+        ('bill_paid', 'Bill Paid'),
+        ('password_changed', 'Password Changed'),
+        ('leave_delay','Leave/Delay Request'),
+        ('message','Message'),
+        ('attendance_marked', 'Attendance Marked'),
+    ]
+    nid = models.AutoField(primary_key=True)
+    teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='notifications')
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    notif_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=255)
+    message = models.CharField(max_length=500, blank=True)
+    related_id = models.IntegerField(null=True, blank=True)  # id of the bill/submission/message etc.
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.notif_type} - {self.title}"

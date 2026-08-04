@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Teacher,Student,CourseContent,Quiz, Question, QuizResult,StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance
+from .models import Teacher,Student,CourseContent,Quiz, Question, QuizResult,StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification
 
 class TeacherSerializer(serializers.ModelSerializer):
     class Meta:
@@ -92,4 +92,26 @@ class AttendanceSerializer(serializers.ModelSerializer):
         model=Attendance
         fields = ['aid', 'student', 'teacher', 'date', 'status', 'remarks', 'created_at']
 
+class BillWithStudentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.username', read_only=True)
+    class Meta:
+        model=Bill
+        fields=['bid','student','teacher','title','amount','due_date','status','paid_date','payment_method','payment_screenshot','transaction_uuid','transaction_code','remarks','created_at']
 
+class BillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=Bill
+        fields=['bid','student','teacher','title','amount','due_date','status','paid_date','payment_method','payment_screenshot','transaction_uuid','transaction_code','remarks','created_at']
+
+class TeacherPaymentQrSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeacherPaymentQr
+        fields = '__all__'
+
+class NotificationSerializer(serializers.Serializer):
+    student_name=serializers.CharField(source='student.username', read_only=True)
+
+    class Meta:
+        model=Notification
+        #fields=['student_name','title','amount','due_date','status','paid_date','payment_method','transaction_uuid','transaction_code']
+        fields = '__all__'

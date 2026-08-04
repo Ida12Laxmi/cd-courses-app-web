@@ -47,4 +47,28 @@ urlpatterns = [
     path('attendance/student/<int:student_id>/', views.get_student_attendance_history, name='get_student_attendance_history'),
     path('attendance/dates/<int:teacher_id>/', views.get_attendance_dates, name='get_attendance_dates'),
     path('teacher/<int:teacher_id>/students-report/', views.get_teacher_students_report, name='teacher-students-report'),
+
+    #bills
+    path('bills/student/<int:student_id>/', views.bills_by_student, name='bills_by_student'),
+    path('bills/create/', views.create_bill,name='create_bill'),
+    path('bills/cash-paid/<int:bill_id>/', views.mark_cash_paid,name='mark_cash_paid'),
+    path('bills/submit-proof/<int:bill_id>/', views.submit_payment_proof,name='submit_payment_proof'),
+    path('bills/verify/<int:bill_id>/', views.verify_payment,name='verify_payment'),
+    path('bills/delete/<int:bill_id>/', views.delete_bill,name='delete_bill'),
+    path('teacher/payment-qr/<int:teacher_id>/', views.get_teacher_qr,name='get_teacher_qr'),
+    path('teacher/payment-qr/upload/<int:teacher_id>/', views.upload_teacher_qr,name='upload_teacher_qr'),
+    
+    path('bills/teacher/<int:teacher_id>/', views.bills_by_teacher,name='bills_by_teacher'),
+    
+    path('bills/update/<int:bill_id>/', views.update_bill,name='update_bill'),
+
+    path('teacher/change-password/<int:teacher_id>/', views.change_teacher_password, name='change_teacher_password'),
+
+    #notifications
+    # accounts/urls.py
+    path('notifications/teacher/<int:teacher_id>/', views.teacher_notifications, name='teacher_notifications'),
+    path('notifications/read/<int:notif_id>/', views.mark_notification_as_read, name='mark_notification_as_read'),
+    path('notifications/read-all/<int:teacher_id>/', views.mark_all_read, name='mark_all_read'),
+    path('notifications/delete/<int:notif_id>/', views.delete_notifications, name='delete_notifications'),
+
 ]

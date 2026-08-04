@@ -3,17 +3,17 @@ from django.shortcuts import render
 from django.db.models import Count, Q
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets, permissions
 from django.contrib.auth.hashers import make_password,check_password
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from dotenv import load_dotenv
-from .serializers import StudentSerializer, TeacherSerializer, ContentSerializer, QuizSerializer, QuestionSerializer, QuizPublicSerializer, QuizResultSerializer, AssignmentSubmissionSerializer, ProjectSubmissionSerializer, ConversationSerializer,MessageSerializer,ReactionSerializer, AttendanceSerializer
-from .models import Student, Teacher,CourseContent, Quiz, Question, QuizResult, StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance
+from .serializers import StudentSerializer, TeacherSerializer, ContentSerializer, QuizSerializer, QuestionSerializer, QuizPublicSerializer, QuizResultSerializer, AssignmentSubmissionSerializer, ProjectSubmissionSerializer, ConversationSerializer,MessageSerializer,ReactionSerializer, AttendanceSerializer, BillSerializer,TeacherPaymentQrSerializer,BillWithStudentSerializer,NotificationSerializer
+from .models import Student, Teacher,CourseContent, Quiz, Question, QuizResult, StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification
 from django.conf import settings
 from django.core.files.storage import default_storage
 from rest_framework.parsers import MultiPartParser, FormParser
-import random
+import random, hashlib,hmac,base64,uuid,os
 from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
@@ -737,3 +737,181 @@ def get_teacher_students_report(request, teacher_id):
         })
 
     return Response(report, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def bills_by_student(request, student_id):
+    bills = Bill.objects.filter(student_id=student_id).order_by('-created_at')
+    serializer = BillSerializer(bills, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+def create_bill(request):
+    serializer = BillSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PATCH'])
+def mark_cash_paid(request, bill_id):
+    try:
+        bill = Bill.objects.get(bid=bill_id)
+    except Bill.DoesNotExist:
+        return Response({'error': 'Bill not found'}, status=404)
+
+    from django.utils import timezone
+    bill.status = 'paid'
+    bill.payment_method = 'cash'
+    bill.paid_date = timezone.now().date()
+    bill.save()
+    return Response(BillSerializer(bill).data)
+
+
+@api_view(['PATCH'])
+@parser_classes([MultiPartParser, FormParser])
+def submit_payment_proof(request, bill_id):
+    try:
+        bill = Bill.objects.get(bid=bill_id)
+    except Bill.DoesNotExist:
+        return Response({'error': 'Bill not found'}, status=404)
+
+    bill.transaction_code = request.data.get('transaction_code', '')
+    bill.payment_method = request.data.get('payment_method', 'esewa')
+    if 'payment_screenshot' in request.FILES:
+        bill.payment_screenshot = request.FILES['payment_screenshot']
+    bill.status = 'pending'  # awaiting teacher verification
+    bill.save()
+    return Response(BillSerializer(bill).data)
+
+
+@api_view(['PATCH'])
+def verify_payment(request, bill_id):
+    """Teacher approves or rejects a pending bill."""
+    try:
+        bill = Bill.objects.get(bid=bill_id)
+    except Bill.DoesNotExist:
+        return Response({'error': 'Bill not found'}, status=404)
+
+    new_status = request.data.get('status')  # 'paid' or 'rejected'
+    if new_status not in ('paid', 'rejected'):
+        return Response({'error': 'status must be paid or rejected'}, status=400)
+
+    from django.utils import timezone
+    bill.status = new_status
+    if new_status == 'paid':
+        bill.paid_date = timezone.now().date()
+    bill.save()
+    return Response(BillSerializer(bill).data)
+
+
+@api_view(['DELETE'])
+def delete_bill(request, bill_id):
+    try:
+        bill = Bill.objects.get(bid=bill_id)
+    except Bill.DoesNotExist:
+        return Response({'error': 'Bill not found'}, status=404)
+    bill.delete()
+    return Response(status=204)
+
+
+@api_view(['GET'])
+def get_teacher_qr(request, teacher_id):
+    try:
+        qr = TeacherPaymentQr.objects.get(teacher_id=teacher_id)
+    except TeacherPaymentQr.DoesNotExist:
+        return Response({'error': 'No QR uploaded'}, status=404)
+    return Response(TeacherPaymentQrSerializer(qr).data)
+
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def upload_teacher_qr(request, teacher_id):
+    if 'payment_qr_file' not in request.FILES:
+        return Response({'error': 'payment_qr_file is required'}, status=400)
+
+    qr, _created = TeacherPaymentQr.objects.update_or_create(
+        teacher_id=teacher_id,
+        defaults={'payment_qr_file': request.FILES['payment_qr_file']}
+    )
+    return Response(TeacherPaymentQrSerializer(qr).data, status=200)
+     
+@api_view(['GET'])
+def bills_by_teacher(request, teacher_id):
+    bills = Bill.objects.filter(teacher_id=teacher_id).order_by('-created_at')
+    serializer = BillWithStudentSerializer(bills, many=True)  # this one needs student_name
+    return Response(serializer.data)
+
+@api_view(['PATCH'])
+def update_bill(request, bill_id):
+    try:
+        bill = Bill.objects.get(bid=bill_id)
+    except Bill.DoesNotExist:
+        return Response({'error': 'Bill not found'}, status=404)
+
+    serializer = BillSerializer(bill, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=400)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def change_teacher_password(request, teacher_id):
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not old_password or not new_password:
+        return Response({"error": "Both current and new password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        teacher = Teacher.objects.get(tid=teacher_id)
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not check_password(old_password, teacher.password):
+        return Response({"error": "Current password is incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if len(new_password) < 6:
+        return Response({"error": "New password must be at least 6 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+    teacher.password = make_password(new_password)
+    teacher.save()
+    return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def teacher_notifications(request, teacher_id):
+    notifications=Notification.objects.filter(teacher_id=teacher_id).order_by('-created_at')
+    serializer=NotificationSerializer(notifications, many=True)
+    return Response(serializer.data)
+
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def mark_notification_as_read(request, notification_id):
+    try:
+        notification=Notification.objects.get(nid=notification_id)
+    except Notification.DoesNotExist:
+        return Response({"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    notification.status='read'
+    notification.save()
+    return Response(NotificationSerializer(notification).data)
+
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def mark_all_read(request, teacher_id):
+    Notification.objects.filter(teacher_id=teacher_id, is_read=False).update(is_read=True)
+    return Response({'status': 'all marked read'})
+
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def delete_notifications(request, teacher_id):
+    try:
+        notifications=Notification.objects.filter(teacher_id=teacher_id)
+    except Notification.DoesNotExist:
+        return Response({"error": "No notifications found for this teacher"}, status=status.HTTP_404_NOT_FOUND)
+    notifications.delete()
+    return Response({"message": "All notifications deleted successfully"}, status=status.HTTP_200_OK)
