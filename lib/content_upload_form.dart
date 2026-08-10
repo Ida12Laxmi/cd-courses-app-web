@@ -25,10 +25,14 @@ class ContentUploadForm extends StatefulWidget {
 class _ContentUploadFormState extends State<ContentUploadForm> {
   static const String _baseUrl = 'http://192.168.0.196:8000';
 
+  // Keep in sync with Student.LEVEL_CHOICES on the backend.
+  static const List<String> _levels = ['Basic', 'Intermediate', 'Advance'];
+
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController videoLinkController = TextEditingController();
 
+  String _selectedLevel = 'Basic';
   File? _pickedFile;
   bool _isLoading = false;
   bool _useLink = false;
@@ -42,6 +46,11 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
       final item = widget.existingItem;
       titleController.text = item['title']?.toString() ?? '';
       descriptionController.text = item['description']?.toString() ?? '';
+
+      final existingLevel = item['level']?.toString();
+      if (existingLevel != null && _levels.contains(existingLevel)) {
+        _selectedLevel = existingLevel;
+      }
 
       final existingVideoLink = item['video_link']?.toString() ?? '';
       if (existingVideoLink.isNotEmpty) {
@@ -82,12 +91,6 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
       );
       return;
     }
-    if (descriptionController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Package is required')),
-      );
-      return;
-    }
     if (_isEditing && _existingId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Missing item id, cannot update')),
@@ -107,6 +110,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     request.fields['content_type'] = widget.contentType;
     request.fields['title'] = titleController.text;
     request.fields['description'] = descriptionController.text;
+    request.fields['level'] = _selectedLevel;
 
     if (widget.contentType == 'video' && _useLink) {
       request.fields['video_link'] = videoLinkController.text;
@@ -164,14 +168,24 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
           children: [
             TextField(
               controller: titleController,
-              
               decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 15),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedLevel,
+              decoration: const InputDecoration(labelText: 'Level', border: OutlineInputBorder()),
+              items: _levels
+                  .map((level) => DropdownMenuItem(value: level, child: Text(level)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _selectedLevel = value);
+              },
             ),
             const SizedBox(height: 15),
             TextField(
               controller: descriptionController,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Package', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 20),
             if (isVideo)

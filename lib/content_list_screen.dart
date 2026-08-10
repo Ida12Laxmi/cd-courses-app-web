@@ -250,6 +250,8 @@ class _ContentListScreenState extends State<ContentListScreen> {
         final item = _items[index];
         final bool isVideoLink =
             item['video_link'] != null && item['video_link'].toString().isNotEmpty;
+        final String level = item['level']?.toString() ?? 'Basic';
+        final String description = item['description']?.toString() ?? '';
 
         return Card(
           color: Colors.white,
@@ -261,7 +263,16 @@ class _ContentListScreenState extends State<ContentListScreen> {
                 textColor: Color(0xFF0B8081),
                 leading: Icon(isVideoLink ? Icons.link : Icons.insert_drive_file, color:const Color(0xFF0B8081)),
                 title: Text(item['title'] ?? '',style: const TextStyle(color: Color(0xFF013768), fontWeight: FontWeight.bold),),
-                subtitle: Text(item['description'] ?? '',style: const TextStyle(color: Color(0xFF013768)),),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (description.isNotEmpty)
+                      Text(description, style: const TextStyle(color: Color(0xFF013768))),
+                    const SizedBox(height: 4),
+                    _LevelChip(level: level),
+                  ],
+                ),
+                isThreeLine: description.isNotEmpty,
                 trailing: Icon(Icons.chevron_right,color: const Color(0xFF0B8081),),
                 onTap: () => _openItem(item),
               ),
@@ -285,6 +296,35 @@ class _ContentListScreenState extends State<ContentListScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _LevelChip extends StatelessWidget {
+  final String level;
+  const _LevelChip({required this.level});
+
+  Color get _color {
+    switch (level) {
+      case 'Advance':
+        return const Color(0xFF7B1FA2);
+      case 'Intermediate':
+        return const Color(0xFFFF9800);
+      default:
+        return const Color(0xFF4CAF50);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _color, width: 1),
+      ),
+      child: Text(level, style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 }

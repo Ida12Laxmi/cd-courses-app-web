@@ -183,6 +183,8 @@ class _QuizListScreenState extends State<QuizListScreen> {
       itemBuilder: (context, index) {
         final quiz = _quizzes[index];
         final questionCount = (quiz['questions'] as List?)?.length ?? 0;
+        final String level = quiz['level']?.toString() ?? 'Basic';
+        final String description = (quiz['description'] ?? '').toString();
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
@@ -192,8 +194,14 @@ class _QuizListScreenState extends State<QuizListScreen> {
               ListTile(
                 leading: const Icon(Icons.quiz),
                 title: Text(quiz['title'] ?? ''),
-                subtitle: Text(
-                  '${(quiz['description'] ?? '').toString().isEmpty ? 'No description' : quiz['description']}\n$questionCount question(s)',
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(description.isEmpty ? 'No description' : description),
+                    Text('$questionCount question(s)'),
+                    const SizedBox(height: 4),
+                    _LevelChip(level: level),
+                  ],
                 ),
                 isThreeLine: true,
               ),
@@ -256,6 +264,35 @@ class _QuizListScreenState extends State<QuizListScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _LevelChip extends StatelessWidget {
+  final String level;
+  const _LevelChip({required this.level});
+
+  Color get _color {
+    switch (level) {
+      case 'Advance':
+        return const Color(0xFF7B1FA2);
+      case 'Intermediate':
+        return const Color(0xFFFF9800);
+      default:
+        return const Color(0xFF4CAF50);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _color, width: 1),
+      ),
+      child: Text(level, style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 }

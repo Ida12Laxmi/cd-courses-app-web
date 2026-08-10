@@ -17,8 +17,12 @@ class CreateQuizScreen extends StatefulWidget {
 class _CreateQuizScreenState extends State<CreateQuizScreen> {
   static const String _baseUrl = 'http://192.168.0.196:8000';
 
+  // Keep in sync with Student.LEVEL_CHOICES on the backend.
+  static const List<String> _levels = ['Basic', 'Intermediate', 'Advance'];
+
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
+  String _selectedLevel = 'Basic';
   bool _isLoading = false;
 
   bool get _isEditing => widget.existingQuiz != null;
@@ -29,6 +33,11 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
     if (_isEditing) {
       titleController.text = widget.existingQuiz['title']?.toString() ?? '';
       descriptionController.text = widget.existingQuiz['description']?.toString() ?? '';
+
+      final existingLevel = widget.existingQuiz['level']?.toString();
+      if (existingLevel != null && _levels.contains(existingLevel)) {
+        _selectedLevel = existingLevel;
+      }
     }
   }
 
@@ -63,6 +72,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               body: jsonEncode({
                 'title': titleController.text.trim(),
                 'description': descriptionController.text.trim(),
+                'level': _selectedLevel,
               }),
             )
           : await http.post(
@@ -72,6 +82,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                 'teacher': widget.teacherId,
                 'title': titleController.text.trim(),
                 'description': descriptionController.text.trim(),
+                'level': _selectedLevel,
               }),
             );
 
@@ -143,6 +154,17 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
             TextField(
               controller: titleController,
               decoration: const InputDecoration(labelText: 'Quiz Title', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 15),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedLevel,
+              decoration: const InputDecoration(labelText: 'Level', border: OutlineInputBorder()),
+              items: _levels
+                  .map((level) => DropdownMenuItem(value: level, child: Text(level)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _selectedLevel = value);
+              },
             ),
             const SizedBox(height: 15),
             TextField(
