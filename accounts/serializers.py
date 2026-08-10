@@ -22,7 +22,7 @@ class ContentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=CourseContent
-        fields=['cid','teacher','content_type','title','file','video_link','description','created_at']
+        fields=['cid','teacher','content_type','title','file','video_link','level','description','created_at']
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,7 +39,7 @@ class QuizSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=Quiz
-        fields = ['quid', 'teacher', 'title', 'description', 'created_at', 'questions']
+        fields = ['quid', 'teacher', 'title', 'level', 'description', 'created_at', 'questions']
 
 class QuizPublicSerializer(serializers.ModelSerializer):
     questions = QuestionPublicSerializer(many=True, read_only=True)

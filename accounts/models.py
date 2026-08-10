@@ -89,6 +89,11 @@ class CourseContent(models.Model):
      title=models.CharField(max_length=200)
      file=models.FileField(upload_to='course_content/', null=True, blank=True)
      video_link=models.URLField(max_length=500,null=True, blank=True)
+     level = models.CharField(
+        max_length=20,
+        choices=Student.LEVEL_CHOICES,
+        default='Basic',
+    )
      description=models.TextField(blank=True, default='')
      created_at=models.DateTimeField(auto_now_add=True)
 
@@ -102,6 +107,11 @@ class Quiz(models.Model):
      quid=models.AutoField(primary_key=True)
      teacher= models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='quizzes')
      title = models.CharField(max_length=200)
+     level = models.CharField(
+             max_length=20,
+             choices=Student.LEVEL_CHOICES,
+             default='Basic',
+         )
      description = models.TextField(blank=True)
      created_at = models.DateTimeField(auto_now_add=True)
 

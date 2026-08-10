@@ -1,6 +1,7 @@
 from json import load
 from django.shortcuts import render
 from django.db.models import Count, Q
+from django.http import FileResponse, HttpResponse, Http404
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.response import Response
 from rest_framework import status, viewsets, permissions
@@ -287,6 +288,39 @@ def resend_student_otp(request):
 
     return Response({"message": "A new OTP has been sent to your email."}, status=status.HTTP_200_OK)
 
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_student(request):
+    email = request.data.get('email', '').strip()
+    password = request.data.get('password')
+
+    if not email or not password:
+        return Response({"error": "Email and password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        student = Student.objects.get(email__iexact=email)
+    except Student.DoesNotExist:
+        return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if not check_password(password, student.password):
+        return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if not student.is_verified:
+        return Response({"error": "Email not verified. Please verify your email first."}, status=status.HTTP_403_FORBIDDEN)
+
+    return Response({
+        "message": "Login successful!",
+        "student": {
+            "sid": student.sid,
+            "username": student.username,
+            "email": student.email,
+            "tid": student.teacher_id,
+        }
+    }, status=status.HTTP_200_OK)
+
+    
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_students(request,teacher_id):
@@ -303,8 +337,41 @@ def update_students(request,student_id):
         return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
     serializer=StudentSerializer(student, data=request.data, partial=True)
     if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            hashed_pwd = make_password(request.data.get('password'))
+            otp = generate_otp()
+            student = serializer.save(
+                password=hashed_pwd,
+                is_verified=False,
+                otp=otp,
+                otp_created_at=timezone.now(),
+            )
+    
+            email_sent = True
+            try:
+                send_mail(
+                    subject='Verify your Click-digitals account',
+                    message=f'Your verification code is: {otp}\nThis code expires in 10 minutes.',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[student.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                email_sent = False
+                print(f'Failed to send verification email: {e}')
+    
+            return Response(
+                {
+                    "message": (
+                        "Account created. Please check your email for the verification code."
+                        if email_sent else
+                        "Account created, but we couldn't send the verification email right now. "
+                        "Use the Resend Code option once the issue is fixed."
+                    ),
+                    "email": student.email,
+                    "email_sent": email_sent,
+                },
+                status=status.HTTP_201_CREATED
+            )
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE'])
@@ -327,6 +394,8 @@ def upload_content(request):
         return Response({"message":"content upload successfully"}, status=status.HTTP_201_CREATED)
     print(serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -915,3 +984,63 @@ def delete_notifications(request, teacher_id):
         return Response({"error": "No notifications found for this teacher"}, status=status.HTTP_404_NOT_FOUND)
     notifications.delete()
     return Response({"message": "All notifications deleted successfully"}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def student_list_content(request, student_id, content_type):
+    try:
+        student= Student.objects.get(sid=student_id)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    items=CourseContent.objects.filter(teacher_id=student.teacher_id, content_type=content_type,level=student.level).order_by('-created_at')
+    serializer=ContentSerializer(items,many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def stream_content(request, cid):
+    try:
+        content = CourseContent.objects.get(cid=cid)
+    except CourseContent.DoesNotExist:
+        return Response({"error": "Content not found"}, status=status.HTTP_404_NOT_FOUND)
+    if not content.file:
+        return Response({"error": "No file attached to this content"}, status=status.HTTP_404_NOT_FOUND)
+    return FileResponse(content.file.open('rb'), content_type='application/octet-stream')
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def submit_assignment(request, assignment_id):
+    try:
+        student = Student.objects.get(pid=assignment_id)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    data=request.data.copy()
+    data['student'] = student.sid
+    data['teacher'] = student.teacher_id
+    serializer=AssignmentSubmissionSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def submit_project(request, project_id):
+    try:
+        student = Student.objects.get(pid=project_id)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    data=request.data.copy()
+    data['student'] = student.sid
+    data['teacher'] = student.teacher_id
+    serializer=ProjectSubmissionSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

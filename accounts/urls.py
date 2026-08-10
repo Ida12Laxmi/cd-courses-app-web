@@ -12,15 +12,22 @@ urlpatterns = [
     path('students/update/<int:student_id>/', views.update_students, name='update_student'),
     path('students/delete/<int:student_id>/', views.delete_student, name='delete_student'),
     path('verify-student-otp/', views.verify_student_otp, name='verify-student-otp'),
-    path('resend-student-otp/', views.resend_student_otp, name='resned-student-otp' ),
+    path('resend-student-otp/', views.resend_student_otp, name='resend-student-otp' ),
+    path('students/login/', views.login_student, name='student_login'),
     path('students/<int:student_id>/assignments/',views.get_assignment_student, name='get_assignment_student'),
     path('students/<int:student_id>/projects/',views.get_project_student, name='get_project_student'),
+    path('students/<int:student_id>/content/<str:content_type>/', views.student_list_content, name='student_list_content'),
+    path('content/<int:cid>/stream/', views.stream_content, name='stream_content'),
+    path('students/<int:student_id>/assignments/submit/', views.submit_assignment, name='submit_assignment'),
+    path('students/<int:student_id>/projects/submit/', views.submit_project, name='submit_project'),
+    #path('students/check-verification/', views.check_student_verification, name='check_student_verification'),
     
     #content
     path('content/upload/', views.upload_content, name='upload_content'),
     path('content/<int:teacher_id>/<str:content_type>/', views.list_content, name='list_content'),
     path('content/update/<int:pk>/', views.update_content, name='update_content'),
     path('content/delete/<int:pk>/', views.delete_content, name='delete_content'),
+ 
     #quiz
     path('quiz/create/', views.create_quiz, name='create_quiz'),
     path('quiz/<int:quiz_id>/add-question/', views.add_question, name='add_question'),
