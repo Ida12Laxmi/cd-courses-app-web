@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'content_types.dart';
 import 'secure_content_viewer_screen.dart';
 import 'submission_screen.dart';
@@ -7,12 +8,109 @@ import 'attendance_report_screen.dart';
 import 'services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'student_bills_list_screen.dart';
+import 'student_quiz_list_screen.dart';
+import 'student_notification_screen.dart';
+import 'student_content_search_screen.dart';
+import 'change_password_student.dart';
+import 'login.dart';
 
-class StudentDashboardScreen extends StatelessWidget {
+class StudentDashboardScreen extends StatefulWidget {
+  final String studentLevel;
   final String studentName;
   final int studentId;
   final int teacherId;
-  const StudentDashboardScreen({super.key, required this.studentName, required this.studentId, required this.teacherId});
+  const StudentDashboardScreen({
+    super.key,
+    required this.studentName,
+    required this.studentId,
+    required this.teacherId,
+    required this.studentLevel,
+  });
+
+  @override
+  State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
+}
+
+class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goToPage(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      _logout(context);
+    }
+  }
+
+  void _logout(BuildContext context) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const StudentLogin()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _confirmExit(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Exit App'),
+        content: const Text('Are you sure you want to exit?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      SystemNavigator.pop();
+    }
+  }
 
   String? _chatTopicTitle(String type) {
     switch (type) {
@@ -32,41 +130,89 @@ class StudentDashboardScreen extends StatelessWidget {
 
     if (item.type == 'attendance') {
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => StudentAttendanceReportScreen(studentId: studentId, studentName: studentName),
+        builder: (_) => StudentAttendanceReportScreen(
+          studentId: widget.studentId,
+          studentName: widget.studentName,
+        ),
       ));
     } else if (item.type == 'billing') {
-  Navigator.push(context, MaterialPageRoute(
-    builder: (_) => StudentBillsListScreen(
-      teacherId: teacherId,
-      studentId: studentId,
-      studentName: studentName,
-    ),
-  ));
-} else if (submissionTypes.contains(item.type)) {
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => SubmissionScreen(studentId: studentId, contentType: item.type, title: item.label),
+        builder: (_) => StudentBillsListScreen(
+          teacherId: widget.teacherId,
+          studentId: widget.studentId,
+          studentName: widget.studentName,
+        ),
+      ));
+    } else if (submissionTypes.contains(item.type)) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => SubmissionScreen(
+          studentId: widget.studentId,
+          contentType: item.type,
+          title: item.label,
+        ),
       ));
     } else if (chatTitle != null) {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => ChatScreen(
           topicTitle: chatTitle,
           currentUserType: 'student',
-          teacherId: teacherId,
-          studentId: studentId,
+          teacherId: widget.teacherId,
+          studentId: widget.studentId,
         ),
       ));
     } else {
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => _ContentListScreen(studentId: studentId, contentType: item.type, title: item.label),
+        builder: (_) => _ContentListScreen(
+          studentId: widget.studentId,
+          contentType: item.type,
+          title: item.label,
+        ),
       ));
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildHomePage(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('$studentName — Dashboard')),
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF013768),
+        iconTheme: const IconThemeData(color: Colors.white),
+      //  title: Text('${widget.studentName} — Dashboard'),
+        automaticallyImplyLeading: false,
+        actions: [
+            IconButton(
+    icon: const Icon(Icons.notifications),
+    tooltip: 'Notifications',
+    onPressed: () => Navigator.push(context, MaterialPageRoute(
+      builder: (_) => StudentNotificationsScreen(studentId: widget.studentId),
+    )),
+  ),
+  IconButton(
+    icon: const Icon(Icons.search),
+    tooltip: 'Search',
+    onPressed: () => Navigator.push(context, MaterialPageRoute(
+            builder: (_) => StudentContentSearchScreen(studentId: widget.studentId),
+          )),
+  ),
+          IconButton(
+            icon: const Icon(Icons.quiz),
+            tooltip: 'Quizzes',
+            onPressed: () => _goToPage(1),
+          ),
+          IconButton(
+            icon: const Icon(Icons.password),
+            tooltip: 'Change Password',
+            onPressed: () => _goToPage(2),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () => _confirmLogout(context),
+          ),
+        ],
+      ),
       body: GridView.builder(
+        
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
@@ -86,6 +232,7 @@ class StudentDashboardScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  
                   Icon(item.icon, size: 32),
                   const SizedBox(height: 8),
                   Padding(
@@ -101,6 +248,36 @@ class StudentDashboardScreen extends StatelessWidget {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = <Widget>[
+      _buildHomePage(context),
+      StudentQuizListScreen(
+        studentId: widget.studentId,
+        teacherId: widget.teacherId,
+        studentLevel:widget.studentLevel,
+      ),
+      ChangePasswordScreen(studentId: widget.studentId),
+    ];
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentPage != 0) {
+          _goToPage(0);
+        } else {
+          _confirmExit(context);
+        }
+      },
+      child: PageView(
+        controller: _pageController,
+        onPageChanged: (index) => setState(() => _currentPage = index),
+        children: pages,
+      ),
+    );
+  }
 }
 
 class _ContentListScreen extends StatefulWidget {
@@ -108,7 +285,7 @@ class _ContentListScreen extends StatefulWidget {
   final String contentType;
   final String title;
   final bool isBilling;
-  const _ContentListScreen({required this.studentId, required this.contentType, required this.title, this.isBilling = false});
+  const _ContentListScreen({required this.studentId, required this.contentType, required this.title}) : isBilling = false;
 
   @override
   State<_ContentListScreen> createState() => _ContentListScreenState();

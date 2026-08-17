@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'otp_verification_screen.dart';
 import 'student_dashboard.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'services/api_service.dart';
 
 
 class StudentLogin extends StatefulWidget {
@@ -54,6 +56,20 @@ class _StudentLoginState extends State<StudentLogin> {
 
       if (response.statusCode == 200) {
         final student = data['student'];
+
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+if (fcmToken != null) {
+  try {
+    await ApiService.registerDeviceToken(
+      role: 'student',
+      userId: int.parse(student['sid'].toString()),
+      token: fcmToken,
+    );
+  } catch (e) {
+    debugPrint('Failed to register device token: $e');
+  }
+}
+
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -63,6 +79,7 @@ class _StudentLoginState extends State<StudentLogin> {
                  studentId: int.parse(student['sid'].toString()),
                  studentName: student['username'].toString(),
                  teacherId: int.parse(student['tid'].toString()),
+                  studentLevel: student['level'].toString(),
               ),
             ),
           );

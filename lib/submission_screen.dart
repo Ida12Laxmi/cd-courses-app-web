@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'services/api_service.dart';
+import 'student_submission_search_screen.dart';
 
 class SubmissionScreen extends StatefulWidget {
   final int studentId;
@@ -21,13 +22,23 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
   late Future<List<dynamic>> _questions;
   late Future<List<dynamic>> _history;
 
+  bool get _isAssignment => widget.contentType == 'assignment';
+
   @override
   void initState() {
     super.initState();
     _questions = ApiService.fetchContent(widget.studentId, widget.contentType);
-    _history = widget.contentType == 'assignment'
+    _history = _isAssignment
         ? ApiService.fetchAssignmentSubmissions(widget.studentId)
         : ApiService.fetchProjectSubmissions(widget.studentId);
+  }
+
+  void _refreshHistory() {
+    setState(() {
+      _history = _isAssignment
+          ? ApiService.fetchAssignmentSubmissions(widget.studentId)
+          : ApiService.fetchProjectSubmissions(widget.studentId);
+    });
   }
 
   Future<void> _pickFile() async {
@@ -49,7 +60,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     }
     setState(() => _submitting = true);
     try {
-      if (widget.contentType == 'assignment') {
+      if (_isAssignment) {
         await ApiService.submitAssignment(
           studentId: widget.studentId,
           title: _titleController.text.trim(),
@@ -71,10 +82,8 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
         setState(() {
           _pickedFilePath = null;
           _pickedFileName = null;
-          _history = widget.contentType == 'assignment'
-              ? ApiService.fetchAssignmentSubmissions(widget.studentId)
-              : ApiService.fetchProjectSubmissions(widget.studentId);
         });
+        _refreshHistory();
       }
     } catch (e) {
       if (mounted) {
@@ -85,10 +94,160 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     }
   }
 
+  // ---- Edit own submission ----
+
+  Future<void> _openEditDialog(dynamic submission) async {
+    final editTitleController = TextEditingController(text: submission['title'] ?? '');
+    final editNoteController = TextEditingController(text: submission['description'] ?? '');
+    String? newFilePath;
+    String? newFileName;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Edit submission'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: editTitleController,
+                  decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: editNoteController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Note', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final result = await FilePicker.platform.pickFiles();
+                        if (result != null && result.files.single.path != null) {
+                          setDialogState(() {
+                            newFilePath = result.files.single.path;
+                            newFileName = result.files.single.name;
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.attach_file),
+                      label: const Text('Replace file'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        newFileName ?? 'Keep current file',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) return;
+    if (editTitleController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title cannot be empty.')));
+      }
+      return;
+    }
+
+    try {
+      if (_isAssignment) {
+        await ApiService.updateOwnAssignment(
+          asid: submission['asid'],
+          studentId: widget.studentId,
+          title: editTitleController.text.trim(),
+          description: editNoteController.text.trim(),
+          filePath: newFilePath,
+        );
+      } else {
+        await ApiService.updateOwnProject(
+          psid: submission['psid'],
+          studentId: widget.studentId,
+          title: editTitleController.text.trim(),
+          description: editNoteController.text.trim(),
+          filePath: newFilePath,
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submission updated.')));
+      }
+      _refreshHistory();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+      }
+    }
+  }
+
+  // ---- Delete own submission ----
+
+  Future<void> _confirmDelete(dynamic submission) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete submission'),
+        content: const Text('Are you sure you want to delete this submission?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      if (_isAssignment) {
+        await ApiService.deleteOwnAssignment(submission['asid'], widget.studentId);
+      } else {
+        await ApiService.deleteOwnProject(submission['psid'], widget.studentId);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submission deleted.')));
+      }
+      _refreshHistory();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(title: Text(widget.title),
+      actions: [
+        IconButton(icon: const Icon(Icons.search),
+        tooltip: 'Search',
+        onPressed: () => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => StudentSubmissionSearchScreen(
+          studentId: widget.studentId,
+          contentType: widget.contentType,
+          title: widget.title,
+        ),
+      )),
+        ),
+      ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -148,11 +307,37 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
               final items = snapshot.data ?? [];
               if (items.isEmpty) return const Text('No submissions yet.');
               return Column(
-                children: items.map((s) => ListTile(
-                  title: Text(s['title'] ?? ''),
-                  subtitle: Text(s['teacher_feedback'] != null && s['teacher_feedback'] != ''
-                      ? 'Feedback: ${s['teacher_feedback']}' : 'Awaiting review'),
-                )).toList(),
+                children: items.map((s) {
+                  final feedback = s['teacher_feedback']?.toString() ?? '';
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ListTile(
+                          title: Text(s['title'] ?? ''),
+                          subtitle: Text(feedback.isNotEmpty ? 'Feedback: $feedback' : 'Awaiting review'),
+                        ),
+                        const Divider(height: 1),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _openEditDialog(s),
+                              icon: const Icon(Icons.edit, size: 18),
+                              label: const Text('Edit'),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _confirmDelete(s),
+                              icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                              label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
               );
             },
           ),

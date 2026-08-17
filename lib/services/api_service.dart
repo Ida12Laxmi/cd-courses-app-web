@@ -91,6 +91,75 @@ class ApiService {
     _checkOk(res);
   }
 
+  // ---------- Student-side: edit/delete own assignment ----------
+
+  static Future<void> updateOwnAssignment({
+    required int asid,
+    required int studentId,
+    required String title,
+    String description = '',
+    String? filePath,
+  }) async {
+    await _updateOwn(
+      url: '$baseUrl/students/assignments/update/$asid/',
+      studentId: studentId,
+      title: title,
+      description: description,
+      filePath: filePath,
+    );
+  }
+
+  static Future<void> deleteOwnAssignment(int asid, int studentId) async {
+    final url = Uri.parse('$baseUrl/students/assignments/delete/$asid/?student_id=$studentId');
+    final res = await http.delete(url, headers: await _headers());
+    _checkOk(res);
+  }
+
+  // ---------- Student-side: edit/delete own project ----------
+
+  static Future<void> updateOwnProject({
+    required int psid,
+    required int studentId,
+    required String title,
+    String description = '',
+    String? filePath,
+  }) async {
+    await _updateOwn(
+      url: '$baseUrl/students/projects/update/$psid/',
+      studentId: studentId,
+      title: title,
+      description: description,
+      filePath: filePath,
+    );
+  }
+
+  static Future<void> deleteOwnProject(int psid, int studentId) async {
+    final url = Uri.parse('$baseUrl/students/projects/delete/$psid/?student_id=$studentId');
+    final res = await http.delete(url, headers: await _headers());
+    _checkOk(res);
+  }
+
+  static Future<void> _updateOwn({
+    required String url,
+    required int studentId,
+    required String title,
+    required String description,
+    String? filePath,
+  }) async {
+    final token = await _storage.read(key: 'auth_token');
+    final req = http.MultipartRequest('PATCH', Uri.parse(url));
+    if (token != null) req.headers['Authorization'] = 'Token $token';
+    req.fields['student_id'] = studentId.toString();
+    req.fields['title'] = title;
+    req.fields['description'] = description;
+    if (filePath != null) {
+      req.files.add(await http.MultipartFile.fromPath('file', filePath));
+    }
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    _checkOk(res);
+  }
+
   // ---------- Conversations / Messages ----------
 
   static Future<Map<String, dynamic>> getOrCreateConversation({
@@ -141,5 +210,36 @@ class ApiService {
     );
     _checkOk(res);
     return jsonDecode(res.body);
+  }
+
+  static Future<void> registerDeviceToken({
+    required String role,
+    required int userId,
+    required String token,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/devices/register-token/'),
+      headers: await _headers(),
+      body: jsonEncode({'role': role, 'user_id': userId, 'token': token}),
+    );
+    _checkOk(res);
+  }
+
+  static Future<List<dynamic>> searchContent(int studentId, String query, {String? contentType}) async {
+    final uri = Uri.parse('$baseUrl/students/$studentId/search/').replace(queryParameters: {
+      'q': query,
+      'type': ?contentType,
+    });
+    final res = await http.get(uri, headers: await _headers());
+    _checkOk(res);
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String,dynamic>> searchAssignmentorProject(int studentId, String contentType, String query) async {
+    final uri=Uri.parse('$baseUrl/students/$studentId/$contentType/search/')
+      .replace(queryParameters: {'q': query});
+      final res = await http.get(uri, headers: await _headers());
+  _checkOk(res);
+  return jsonDecode(res.body);
   }
 }
