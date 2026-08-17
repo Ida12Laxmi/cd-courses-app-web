@@ -72,10 +72,41 @@ urlpatterns = [
     path('teacher/change-password/<int:teacher_id>/', views.change_teacher_password, name='change_teacher_password'),
 
     #notifications
-    # accounts/urls.py
+
     path('notifications/teacher/<int:teacher_id>/', views.teacher_notifications, name='teacher_notifications'),
     path('notifications/read/<int:notif_id>/', views.mark_notification_as_read, name='mark_notification_as_read'),
     path('notifications/read-all/<int:teacher_id>/', views.mark_all_read, name='mark_all_read'),
+    path('notifications/read-all/student/<int:student_id>/', views.mark_all_read_student, name='mark_all_read_student'),
+   
     path('notifications/delete/<int:notif_id>/', views.delete_notifications, name='delete_notifications'),
 
+    path('students/<int:student_id>/assignments/submit/', views.submit_assignment, name='submit_assignment'),
+    path('students/<int:student_id>/projects/submit/', views.submit_project, name='submit_project'),
+
+    #firebase
+    path('devices/register-token/', views.register_device_token, name='register_device_token'),
+
+    #notifications for students
+   # path('students/<int:student_id>/notifications/', views.student_notifications, name='student_notifications'),
+   path('notifications/student/<int:student_id>/', views.student_notifications, name='student_notifications'),
+
+   path('students/<int:student_id>/search/', views.student_search_content, name='student-search-content'),
+
+   path('teacher/<int:teacher_id>/search/', views.teacher_search_content, name='teacher_search_content'),
+
+   path('students/assignments/update/<int:asid>/', views.student_update_assignment,name='student_update_assignment'),
+   path('students/assignments/delete/<int:asid>/', views.student_delete_assignment,name='student_delete_assignment'),
+
+   path('students/projects/update/<int:psid>/', views.student_update_project,name='student_update_project'),
+   path('students/projects/delete/<int:psid>/', views.student_delete_project,name='student_delete_project'),
+
+   path('assignments/feedback/<int:asid>/', views.assignment_feedback,name='assignment_feedback'),
+   path('assignments/delete/<int:asid>/', views.delete_assignment,name='delete_assignment'),
+
+   path('projects/feedback/<int:psid>/', views.project_feedback,name='project_feedback'),
+   path('projects/delete/<int:psid>/', views.delete_project,name='delete_project'),
+
+   path('students/<int:student_id>/<str:content_type>/search/', views.student_search_submissions, name='student_search_submissions'),
+
+   path('student/change-password/<int:student_id>/', views.change_student_password, name='change_student_password'),
 ]

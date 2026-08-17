@@ -1,0 +1,7 @@
+firebase-service-account.json
+media/
+.env
+*.pyc
+__pycache__/
+.venv/
+db.sqlite3

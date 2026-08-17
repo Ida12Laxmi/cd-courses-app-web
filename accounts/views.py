@@ -1,6 +1,7 @@
 from json import load
 from django.shortcuts import render
 from django.db.models import Count, Q
+import re
 from django.http import FileResponse, HttpResponse, Http404
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.response import Response
@@ -10,7 +11,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from dotenv import load_dotenv
 from .serializers import StudentSerializer, TeacherSerializer, ContentSerializer, QuizSerializer, QuestionSerializer, QuizPublicSerializer, QuizResultSerializer, AssignmentSubmissionSerializer, ProjectSubmissionSerializer, ConversationSerializer,MessageSerializer,ReactionSerializer, AttendanceSerializer, BillSerializer,TeacherPaymentQrSerializer,BillWithStudentSerializer,NotificationSerializer
-from .models import Student, Teacher,CourseContent, Quiz, Question, QuizResult, StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification
+from .models import DeviceToken, Student, Teacher,CourseContent, Quiz, Question, QuizResult, StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification,DeviceToken
+from .firebase_utils import send_push_to_user, notify_student
 from django.conf import settings
 from django.core.files.storage import default_storage
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -317,6 +319,7 @@ def login_student(request):
             "username": student.username,
             "email": student.email,
             "tid": student.teacher_id,
+            "level": student.level,
         }
     }, status=status.HTTP_200_OK)
 
@@ -390,7 +393,18 @@ def delete_student(request,student_id):
 def upload_content(request):
     serializer=ContentSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
+        content=serializer.save()
+        students = Student.objects.filter(teacher_id=content.teacher_id,level=content.level)
+        print(f'CONTENT LEVEL: {content.level!r} | Notifying {students.count()} students: {list(students.values_list("sid", "level"))}')
+        for student in students:
+            notify_student(
+                student=student,
+                notify_type='content_uploaded',
+                title='New Content Available',
+                message=f'New {content.content_type} content has been uploaded by your teacher.',
+                related_id=content.cid
+            )
+
         return Response({"message":"content upload successfully"}, status=status.HTTP_201_CREATED)
     print(serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -444,7 +458,18 @@ def delete_content(request, pk):
 def create_quiz(request):
     serializer=QuizSerializer(data=request.data)
     if(serializer.is_valid()):
-        serializer.save()
+        quiz=serializer.save()
+        students = Student.objects.filter(teacher_id=quiz.teacher_id,level=quiz.level)
+        print(f'QUIZ LEVEL: {quiz.level!r} | Notifying {students.count()} students: {list(students.values_list("sid", "level"))}')
+
+        for student in students:
+            notify_student(
+                student=student,
+                notify_type='quiz_created',
+                title='New Quiz Available',
+                message=f'A new quiz "{quiz.title}" has been created by your teacher.',
+                related_id=quiz.quid
+            )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -654,6 +679,21 @@ def send_message(request):
         text=text,
         attachment=attachment
     )
+
+    if sender_type == 'teacher':
+        try:
+            conversation = Conversation.objects.get(convid=conv_id)
+            student = Student.objects.get(sid=conversation.student_id)
+            notify_student(
+                student=student,
+                notify_type='new_message',
+                title='New Message from Teacher',
+                message=f'You have a new message from your teacher.',
+                related_id=message.message_id
+            )
+        except (Conversation.DoesNotExist, Student.DoesNotExist):
+            pass  # Handle the case where the conversation or student doesn't exist
+
     return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
 
 @api_view(['POST'])
@@ -747,6 +787,17 @@ def save_attendance(request):
                 'remarks': r.get('remarks', ''),
             }
         )
+        try:
+            student = Student.objects.get(sid=r['student'])
+            notify_student(
+                student=student,
+                notify_type='attendance_marked',
+                title='Attendance Update',
+                message=f'Your attendance for {date_str} has been marked as {r.get("status", "present")}.',
+                related_id=None
+            )
+        except Student.DoesNotExist:
+            pass  # Skip notification if student does not exist
     return Response({"message": "Attendance saved successfully"}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
@@ -819,7 +870,14 @@ def bills_by_student(request, student_id):
 def create_bill(request):
     serializer = BillSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
+        bill=serializer.save()
+        notify_student(
+            student=bill.student,
+            notify_type='new_bill',
+            title=f'"{bill.title}" — Rs. {bill.amount}',
+            message='A new bill has been created for you. Please check your account for details.',
+            related_id=bill.bid
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -953,7 +1011,7 @@ def change_teacher_password(request, teacher_id):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def teacher_notifications(request, teacher_id):
-    notifications=Notification.objects.filter(teacher_id=teacher_id).order_by('-created_at')
+    notifications=Notification.objects.filter(teacher_id=teacher_id, recipient='teacher').order_by('-created_at')
     serializer=NotificationSerializer(notifications, many=True)
     return Response(serializer.data)
 
@@ -965,7 +1023,7 @@ def mark_notification_as_read(request, notification_id):
     except Notification.DoesNotExist:
         return Response({"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    notification.status='read'
+    notification.is_read=True
     notification.save()
     return Response(NotificationSerializer(notification).data)
 
@@ -973,6 +1031,12 @@ def mark_notification_as_read(request, notification_id):
 @permission_classes([AllowAny])
 def mark_all_read(request, teacher_id):
     Notification.objects.filter(teacher_id=teacher_id, is_read=False).update(is_read=True)
+    return Response({'status': 'all marked read'})
+
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def mark_all_read_student(request, student_id):
+    Notification.objects.filter(student_id=student_id, is_read=False).update(is_read=True)
     return Response({'status': 'all marked read'})
 
 @api_view(['DELETE'])
@@ -1008,39 +1072,395 @@ def stream_content(request, cid):
         return Response({"error": "No file attached to this content"}, status=status.HTTP_404_NOT_FOUND)
     return FileResponse(content.file.open('rb'), content_type='application/octet-stream')
 
-@api_view(['GET'])
+
+
+
+@api_view(['POST'])
 @permission_classes([AllowAny])
 @parser_classes([MultiPartParser, FormParser])
-def submit_assignment(request, assignment_id):
+def submit_assignment(request, student_id):
     try:
-        student = Student.objects.get(pid=assignment_id)
+        student = Student.objects.get(sid=student_id)
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    data=request.data.copy()
+    data = request.data.copy()
     data['student'] = student.sid
     data['teacher'] = student.teacher_id
-    serializer=AssignmentSubmissionSerializer(data=data)
+    serializer = AssignmentSubmissionSerializer(data=data)
     if serializer.is_valid():
-        serializer.save()
+        submission =serializer.save()
+        Notification.objects.create(
+            teacher_id=student.teacher_id,
+            student=student,
+            notif_type='assignment_submitted',
+            title='New assignment submitted',
+            message=f'{student.username} submitted "{submission.title}"',
+            related_id=submission.asid,
+        )
+        send_push_to_user(
+            role='teacher',
+            user_id=student.teacher_id,
+            title='New assignment submitted',
+            body=f'{student.username} submitted "{submission.title}"',
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET'])
+
+@api_view(['POST'])
 @permission_classes([AllowAny])
 @parser_classes([MultiPartParser, FormParser])
-def submit_project(request, project_id):
+def submit_project(request, student_id):
     try:
-        student = Student.objects.get(pid=project_id)
+        student = Student.objects.get(sid=student_id)
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    data=request.data.copy()
+    data = request.data.copy()
     data['student'] = student.sid
     data['teacher'] = student.teacher_id
-    serializer=ProjectSubmissionSerializer(data=data)
+    serializer = ProjectSubmissionSerializer(data=data)
     if serializer.is_valid():
-        serializer.save()
+        submission = serializer.save()
+        Notification.objects.create(
+            teacher_id=student.teacher_id,
+            student=student,
+            notif_type='project_submitted',
+            title='New project submitted',
+            message=f'{student.username} submitted "{submission.title}"',
+            related_id=submission.psid,
+        )
+        send_push_to_user(
+            role='teacher',
+            user_id=student.teacher_id,
+            title='New project submitted',
+            body=f'{student.username} submitted "{submission.title}"',
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_device_token(request):
+    role = request.data.get('role')
+    user_id = request.data.get('user_id')
+    token = request.data.get('token')
+
+    if not role or not user_id or not token:
+        return Response({"error": "role, user_id, and token are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    DeviceToken.objects.update_or_create(
+        device_token=token,
+        defaults={'role': role, 'user_id': user_id}
+    )
+
+    return Response({"message": "Device token registered successfully"}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def student_notifications(request, student_id):
+    notifications = Notification.objects.filter(student_id=student_id, recipient='student').order_by('-created_at')
+    serializer = NotificationSerializer(notifications, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def student_search_content(request, student_id):
+    query=request.GET.get('q','').strip()
+    content_type_filter=request.GET.get('type','').strip()
+    try:
+        student=Student.objects.get(sid=student_id)
+    except Student.DoesNotExist:
+        return Response({"error":"Student does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+    searchable_types=['syllabus','notes','video','result','certificate','reference','time table']
+
+    if content_type_filter:
+        if content_type_filter not in searchable_types:
+             return Response({"error": "Invalid content type"}, status=status.HTTP_400_BAD_REQUEST)
+        types_to_use=[content_type_filter]
+    else:
+        types_to_use=searchable_types
+
+
+    items=CourseContent.objects.filter(
+        teacher_id=student.teacher_id,
+        level=student.level,
+        content_type__in=types_to_use
+    )
+    if query:
+        escaped=re.escape(query)
+        items=items.filter(Q(title__iregex=rf'(^|\s){escaped}'))
+    items=items.order_by('title')
+    serializer=ContentSerializer(items,many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def teacher_search_content(request, teacher_id):
+    query=request.GET.get('q','').strip()
+    content_type_filter=request.GET.get('type','').strip()
+    try:
+        teacher=Teacher.objects.get(tid=teacher_id)
+    except Teacher.DoesNotExist:
+        return Response({"error":"Teacher does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+    searchable_types=['syllabus','notes','video','result','certificate','reference','time table','assignment','project','announcement','result','certificate']
+
+    if content_type_filter:
+        if content_type_filter not in searchable_types:
+             return Response({"error": "Invalid content type"}, status=status.HTTP_400_BAD_REQUEST)
+        types_to_use=[content_type_filter]
+    else:
+        types_to_use=searchable_types
+
+
+    items=CourseContent.objects.filter(
+        teacher_id=teacher.tid,
+        content_type__in=types_to_use
+    )
+    if query:
+        escaped=re.escape(query)
+        items=items.filter(Q(title__iregex=rf'(^|\s){escaped}'))
+    items=items.order_by('title')
+    serializer=ContentSerializer(items,many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def student_search_submissions(request,student_id,content_type):
+    query=request.GET.get('q','').strip()
+    if content_type not in ('assignment','project'):
+         return Response({"error": "content_type must be 'assignment' or 'project'"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        student=Student.objects.get(sid=student_id)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    escaped=re.escape(query) if query else None
+
+    given = CourseContent.objects.filter(
+        teacher_id=student.teacher_id,
+        level=student.level,
+        content_type=content_type,
+    )
+
+    if escaped:
+        given=given.filter(Q(title__iregex=rf'(^|\s){escaped}'))
+    given_data = ContentSerializer(given.order_by('title'), many=True).data
+
+    if content_type=='assignment':
+        submissions=AssignmentSubmission.objects.filter(student_id=student_id)
+        if escaped:
+            submissions= submissions.filter(Q(title__iregex=rf'(^|\s){escaped}'))
+        sub_data=AssignmentSubmissionSerializer(submissions.order_by('title'),many=True).data
+    else:
+        submissions = ProjectSubmission.objects.filter(student_id=student_id)
+        if escaped:
+            submissions=submissions.filter(Q(title__iregex=rf'(^|\s){escaped}'))
+        sub_data=ProjectSubmissionSerializer(submissions.order_by('title'),many=True).data
+
+    return Response({
+        "given": given_data,
+        "submissions": sub_data,
+    })
+
+# --- Assignment feedback / update / delete ---
+
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def assignment_feedback(request, asid):
+    try:
+        submission = AssignmentSubmission.objects.get(asid=asid)
+    except AssignmentSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    submission.teacher_feedback = request.data.get('teacher_feedback', submission.teacher_feedback)
+    submission.save()
+
+    notify_student(
+        student=submission.student,
+        notify_type='assignment_feedback',
+        title='Feedback on your assignment',
+        message=f'Your teacher left feedback on "{submission.title}".',
+        related_id=submission.asid
+    )
+
+    return Response(AssignmentSubmissionSerializer(submission).data, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def delete_assignment(request, asid):
+    try:
+        submission = AssignmentSubmission.objects.get(asid=asid)
+    except AssignmentSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+    if submission.file:
+        submission.file.delete(save=False)
+    submission.delete()
+    return Response({"message": "Submission deleted successfully"}, status=status.HTTP_200_OK)
+
+
+
+
+
+# --- Project feedback / update / delete (mirrors assignment) ---
+
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def project_feedback(request, psid):
+    try:
+        submission = ProjectSubmission.objects.get(psid=psid)
+    except ProjectSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    submission.teacher_feedback = request.data.get('teacher_feedback', submission.teacher_feedback)
+    submission.save()
+
+    notify_student(
+        student=submission.student,
+        notify_type='project_feedback',
+        title='Feedback on your project',
+        message=f'Your teacher left feedback on "{submission.title}".',
+        related_id=submission.psid
+    )
+
+    return Response(ProjectSubmissionSerializer(submission).data, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def delete_project(request, psid):
+    try:
+        submission = ProjectSubmission.objects.get(psid=psid)
+    except ProjectSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+    if submission.file:
+        submission.file.delete(save=False)
+    submission.delete()
+    return Response({"message": "Submission deleted successfully"}, status=status.HTTP_200_OK)
+
+
+# --- Student-side: edit/delete own assignment (ownership-checked) ---
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def student_update_assignment(request, asid):
+    student_id = request.data.get('student_id')
+    if not student_id:
+        return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        submission = AssignmentSubmission.objects.get(asid=asid)
+    except AssignmentSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if str(submission.student_id) != str(student_id):
+        return Response({"error": "You can only edit your own submission"}, status=status.HTTP_403_FORBIDDEN)
+
+    if 'file' in request.data and submission.file:
+        submission.file.delete(save=False)
+
+    serializer = AssignmentSubmissionSerializer(submission, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def student_delete_assignment(request, asid):
+    student_id = request.GET.get('student_id')
+    if not student_id:
+        return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        submission = AssignmentSubmission.objects.get(asid=asid)
+    except AssignmentSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if str(submission.student_id) != str(student_id):
+        return Response({"error": "You can only delete your own submission"}, status=status.HTTP_403_FORBIDDEN)
+
+    if submission.file:
+        submission.file.delete(save=False)
+    submission.delete()
+    return Response({"message": "Submission deleted successfully"}, status=status.HTTP_200_OK)
+
+
+# --- Student-side: edit/delete own project (ownership-checked) ---
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def student_update_project(request, psid):
+    student_id = request.data.get('student_id')
+    if not student_id:
+        return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        submission = ProjectSubmission.objects.get(psid=psid)
+    except ProjectSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if str(submission.student_id) != str(student_id):
+        return Response({"error": "You can only edit your own submission"}, status=status.HTTP_403_FORBIDDEN)
+
+    if 'file' in request.data and submission.file:
+        submission.file.delete(save=False)
+
+    serializer = ProjectSubmissionSerializer(submission, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def student_delete_project(request, psid):
+    student_id = request.GET.get('student_id')
+    if not student_id:
+        return Response({"error": "student_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        submission = ProjectSubmission.objects.get(psid=psid)
+    except ProjectSubmission.DoesNotExist:
+        return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if str(submission.student_id) != str(student_id):
+        return Response({"error": "You can only delete your own submission"}, status=status.HTTP_403_FORBIDDEN)
+
+    if submission.file:
+        submission.file.delete(save=False)
+    submission.delete()
+    return Response({"message": "Submission deleted successfully"}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def change_student_password(request, student_id):
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not old_password or not new_password:
+        return Response({"error": "Both current and new password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        student = Student.objects.get(sid=student_id)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not check_password(old_password, student.password):
+        return Response({"error": "Current password is incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if len(new_password) < 6:
+        return Response({"error": "New password must be at least 6 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+    student.password = make_password(new_password)
+    student.save()
+    return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)

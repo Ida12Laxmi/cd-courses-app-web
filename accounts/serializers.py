@@ -68,7 +68,7 @@ class AssignmentSubmissionSerializer(serializers.ModelSerializer):
 class ProjectSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectSubmission
-        fields = ['psid', 'student', 'teacher', 'title', 'description', 'file', 'submitted_at']
+        fields = ['psid', 'student', 'teacher', 'title', 'description', 'file', 'submitted_at','teacher_feedback']
 
 class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -108,10 +108,10 @@ class TeacherPaymentQrSerializer(serializers.ModelSerializer):
         model = TeacherPaymentQr
         fields = '__all__'
 
-class NotificationSerializer(serializers.Serializer):
+class NotificationSerializer(serializers.ModelSerializer):
     student_name=serializers.CharField(source='student.username', read_only=True)
 
     class Meta:
         model=Notification
-        #fields=['student_name','title','amount','due_date','status','paid_date','payment_method','transaction_uuid','transaction_code']
-        fields = '__all__'
+        fields=['nid', 'teacher', 'student', 'recipient', 'notif_type', 'title', 'message', 'related_id', 'is_read', 'created_at', 'student_name']
+        #fields = '__all__'

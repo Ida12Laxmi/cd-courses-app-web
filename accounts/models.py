@@ -168,6 +168,7 @@ class ProjectSubmission(models.Model):
     description = models.TextField(blank=True)
     file = models.FileField(upload_to='project_submissions/', null=True, blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
+    teacher_feedback = models.TextField(null=True, blank=True)
 
 class Conversation(models.Model):
     convid=models.AutoField(primary_key=True)
@@ -256,6 +257,10 @@ class TeacherPaymentQr(models.Model):
         return f"QR for {self.teacher}"
 
 class Notification(models.Model):
+    RECIPIENT_CHOICES = [
+        ('teacher', 'Teacher'),
+        ('student', 'Student'),
+    ]
     NOTIFICATION_TYPES = [
         ('assignment_submitted', 'Assignment Submitted'),
         ('project_submitted', 'Project Submitted'),
@@ -270,6 +275,7 @@ class Notification(models.Model):
     nid = models.AutoField(primary_key=True)
     teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='notifications')
     student = models.ForeignKey('Student', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    recipient = models.CharField(max_length=10, choices=RECIPIENT_CHOICES, default='teacher')
     notif_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
     title = models.CharField(max_length=255)
     message = models.CharField(max_length=500, blank=True)
@@ -282,3 +288,17 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.notif_type} - {self.title}"
+
+class DeviceToken(models.Model):
+    ROLE_CHOICES = [
+        ('teacher', 'Teacher'),
+        ('student', 'Student'),
+    ]
+    id = models.AutoField(primary_key=True)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    user_id = models.IntegerField()
+    device_token = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'device_token'
