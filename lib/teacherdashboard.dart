@@ -10,6 +10,7 @@ import 'attendance_screen.dart';
 import 'change_password_screen.dart';
 import 'upload_qr_screen.dart';
 import 'notifications_screen.dart';
+import 'teacher_content_search_screen.dart';
 
 class Teacherdashboard extends StatefulWidget {
   final int teacherId;
@@ -138,11 +139,22 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
             tooltip: 'Notifications',
             onPressed: () => _goToPage(4),
           ),
+          
           IconButton(
             icon: const Icon(Icons.password),
             tooltip: 'Change Password',
             onPressed: () => _goToPage(5),
           ),
+          IconButton(
+  icon: const Icon(Icons.search),
+  tooltip: 'Search',
+  onPressed: () => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TeacherContentSearchScreen(teacherId: widget.teacherId),
+    ),
+  ),
+),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',

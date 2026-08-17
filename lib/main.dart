@@ -1,10 +1,77 @@
 import 'package:flutter/material.dart';
 import 'reg.dart'; // Import the registration page
 import 'login.dart'; // Import the login page
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'firebase_options.dart';// Import the OTP verification screen
 
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+}
 
-void main() {
+final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+
+Future<void> _initLocalNotifications() async {
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const initSettings = InitializationSettings(android: androidInit);
+  await _localNotifications.initialize(initSettings);
+
+  const channel = AndroidNotificationChannel(
+    'default_channel',
+    'General Notifications',
+    description: 'Assignment, message, and billing updates',
+    importance: Importance.high,
+  );
+  await _localNotifications
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
+}
+
+Future<void> _showForegroundNotification(RemoteMessage message) async {
+  final notification = message.notification;
+  if (notification == null) return;
+  await _localNotifications.show(
+    notification.hashCode,
+    notification.title,
+    notification.body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'default_channel',
+        'General Notifications',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+  );
+}
+/*void main() {
   runApp(const MyApp());
+}*/
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  await _initLocalNotifications();
+
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  FirebaseMessaging.onMessage.listen(_showForegroundNotification);
+
+  final fcmToken = await FirebaseMessaging.instance.getToken();
+  debugPrint('FCM TOKEN: $fcmToken');
+
+  runApp(const MyApp()); // keep whatever your actual root widget class is called here
 }
 
 class MyApp extends StatelessWidget {

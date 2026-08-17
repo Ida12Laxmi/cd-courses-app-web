@@ -52,7 +52,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _markRead(dynamic notif) async {
     if (notif['is_read'] == true) return;
-    final url = Uri.parse('$_baseUrl/notifications/read/${notif['id']}/');
+    final url = Uri.parse('$_baseUrl/notifications/read/${notif['nid']}/');
     try {
       await http.patch(url);
       setState(() => notif['is_read'] = true);
@@ -68,7 +68,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _deleteNotification(dynamic notif) async {
-    final url = Uri.parse('$_baseUrl/notifications/delete/${notif['id']}/');
+    final url = Uri.parse('$_baseUrl/notifications/delete/${notif['nid']}/');
     try {
       final response = await http.delete(url);
       if (response.statusCode == 200 || response.statusCode == 204) {
@@ -180,7 +180,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         final studentName = notif['student_name'] ?? '';
 
         return Dismissible(
-          key: Key(notif['id'].toString()),
+          key: Key(notif['nid'].toString()),
           direction: DismissDirection.endToStart,
           background: Container(
             alignment: Alignment.centerRight,

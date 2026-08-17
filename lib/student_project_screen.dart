@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'teacher_submission_search_screen.dart';
 
 class StudentProjectsScreen extends StatefulWidget {
   final int studentId;
@@ -73,10 +74,94 @@ class _StudentProjectsScreenState extends State<StudentProjectsScreen> {
     }
   }
 
+  Future<void> _openFeedbackDialog(dynamic submission) async {
+    final controller = TextEditingController(text: submission['teacher_feedback']?.toString() ?? '');
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Feedback'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Write feedback for this submission...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      await _saveFeedback(submission, result);
+    }
+  }
+
+  Future<void> _saveFeedback(dynamic submission, String feedback) async {
+    final id = submission['psid'];
+    if (id == null) return;
+
+    final url = Uri.parse('$_baseUrl/accounts/projects/feedback/$id/');
+    try {
+      final response = await http.patch(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode({'teacher_feedback': feedback}),
+      );
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Feedback saved')),
+          );
+        }
+        _fetchSubmissions();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to save feedback: ${response.body}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not connect to server')),
+        );
+      }
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.studentName} — Projects'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+        title: Text('${widget.studentName} — Projects'),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+        actions: [
+        IconButton(icon: const Icon(Icons.search),
+        tooltip: 'Search',
+        onPressed:  () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeacherSubmissionSearchScreen(
+            studentId: widget.studentId,
+            studentName: widget.studentName,
+            contentType: 'project',
+          ),
+        ),
+      ),
+)
+      ],
+      ),
       body: RefreshIndicator(onRefresh: _fetchSubmissions, child: _buildBody()),
     );
   }
@@ -106,20 +191,50 @@ class _StudentProjectsScreenState extends State<StudentProjectsScreen> {
       );
     }
 
-    // View-only — no edit/delete actions here by design.
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: _submissions.length,
       itemBuilder: (context, index) {
         final submission = _submissions[index];
+        final feedback = submission['teacher_feedback']?.toString() ?? '';
+
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
-          child: ListTile(
-            leading: const Icon(Icons.folder_special),
-            title: Text(submission['title'] ?? ''),
-            subtitle: Text(submission['description'] ?? ''),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _openFile(submission),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.folder_special),
+                title: Text(submission['title'] ?? ''),
+                subtitle: Text(submission['description'] ?? ''),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openFile(submission),
+              ),
+              if (feedback.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Text(
+                    'Feedback: $feedback',
+                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              const Divider(height: 1),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _openFeedbackDialog(submission),
+                    icon: const Icon(Icons.edit_note, size: 18),
+                    label: Text(feedback.isEmpty ? 'Add Feedback' : 'Edit Feedback'),
+                  ),
+                 /* TextButton.icon(
+                    onPressed: () => _confirmDelete(submission),
+                    icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                    label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),*/
+                ],
+              ),
+            ],
           ),
         );
       },

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'teacher_submission_search_screen.dart';
 
 class StudentAssignmentsScreen extends StatefulWidget {
   final int studentId;
@@ -137,59 +138,27 @@ class _StudentAssignmentsScreenState extends State<StudentAssignmentsScreen> {
     }
   }
 
-  Future<void> _confirmDelete(dynamic submission) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete submission'),
-        content: const Text('Are you sure you want to delete this submission?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) _deleteSubmission(submission);
-  }
-
-  Future<void> _deleteSubmission(dynamic submission) async {
-    final id = submission['asid'];
-    if (id == null) return;
-
-    final url = Uri.parse('$_baseUrl/accounts/assignments/delete/$id/');
-    try {
-      final response = await http.delete(url);
-      if (response.statusCode == 200) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Submission deleted')),
-          );
-        }
-        _fetchSubmissions();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete: ${response.body}')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not connect to server')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.studentName} — Assignments'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(title: Text('${widget.studentName} — Assignments'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,
+      actions: [
+        IconButton(icon: const Icon(Icons.search),
+        tooltip: 'Search',
+        onPressed:  () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeacherSubmissionSearchScreen(
+            studentId: widget.studentId,
+            studentName: widget.studentName,
+            contentType: 'assignment',
+          ),
+        ),
+      ),
+)
+      ],
+      ),
       body: RefreshIndicator(onRefresh: _fetchSubmissions, child: _buildBody()),
     );
   }
@@ -255,11 +224,11 @@ class _StudentAssignmentsScreenState extends State<StudentAssignmentsScreen> {
                     icon: const Icon(Icons.edit_note, size: 18),
                     label: Text(feedback.isEmpty ? 'Add Feedback' : 'Edit Feedback'),
                   ),
-                  TextButton.icon(
+                /*  TextButton.icon(
                     onPressed: () => _confirmDelete(submission),
                     icon: const Icon(Icons.delete, size: 18, color: Colors.red),
                     label: const Text('Delete', style: TextStyle(color: Colors.red)),
-                  ),
+                  ),*/
                 ],
               ),
             ],

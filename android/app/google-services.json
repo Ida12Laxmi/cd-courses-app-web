@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "60779357539",
+    "project_id": "clickdigitals-courses-app",
+    "storage_bucket": "clickdigitals-courses-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:60779357539:android:66b2887b272282a79e9f56",
+        "android_client_info": {
+          "package_name": "clickdigitals.coursesapp.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARFXYEmYvIj4vIEgHzXbUCdMiABxHyn0Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:60779357539:android:ed3371d1a1e4841b9e9f56",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARFXYEmYvIj4vIEgHzXbUCdMiABxHyn0Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

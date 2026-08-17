@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'teacherdashboard.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -57,6 +58,19 @@ class _LoginState extends State<Login>{
         final data = jsonDecode(response.body);
         final teacherId = data['admin']['tid'];
         final teacherName=data['admin']['username'];
+
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if(fcmToken != null) {
+           try {
+      await http.post(
+        Uri.parse('http://192.168.0.196:8000/accounts/devices/register-token/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'role': 'teacher', 'user_id': teacherId, 'token': fcmToken}),
+      );
+    } catch (e) {
+      debugPrint('Failed to register device token: $e');
+    }
+        }
 
         if (mounted) {
           Navigator.pushReplacement(
