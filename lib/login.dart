@@ -5,6 +5,7 @@ import 'otp_verification_screen.dart';
 import 'student_dashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'services/api_service.dart';
+import 'student_forgot_screen.dart';
 
 
 class StudentLogin extends StatefulWidget {
@@ -172,6 +173,11 @@ if (fcmToken != null) {
                           ),
                           const Divider(height: 30),
                     TextButton(
+                      style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       onPressed: () {
                         Navigator.pushReplacement(
                           context,
@@ -179,6 +185,19 @@ if (fcmToken != null) {
                         );
                       },
                       child: const Text('Not verified? Go to OTP Verification', style: TextStyle(color: Color(0xFF0B8081))),
+                    ),
+                    const SizedBox(height: 20),
+                    TextButton(
+                    style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StudentForgotPasswordScreen()),
+                    ),
+                    child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF0B8081))),
                     ),
                         ],
                       ),

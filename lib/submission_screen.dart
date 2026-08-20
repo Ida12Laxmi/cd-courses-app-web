@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'services/api_service.dart';
 import 'student_submission_search_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SubmissionScreen extends StatefulWidget {
   final int studentId;
@@ -231,6 +232,81 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     }
   }
 
+/*Future<void> _openFile(dynamic submission) async {
+  final rawUrl = submission['file'] ?? submission['file_url'];
+  if (rawUrl == null || rawUrl.toString().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No file attached to this submission.')),
+    );
+    return;
+  }
+
+  final path = rawUrl.toString();
+ // final fullUrl = path.startsWith('http') ? path : 'http://192.168.0.196:8000$path';
+   final fullUrl = path.startsWith('http') ? path : '${ApiService.baseUrl}$path';
+
+  final uri = Uri.tryParse(fullUrl);
+  if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open file: $fullUrl')),
+      );
+    }
+  }
+}*/
+Future<void> _openFile(dynamic submission) async {
+  final rawUrl = submission['file'] ?? submission['file_url'];
+  if (rawUrl == null || rawUrl.toString().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No file attached to this submission.')),
+    );
+    return;
+  }
+
+  final path = rawUrl.toString();
+  final fullUrl = path.startsWith('http') ? path : '${ApiService.mediaOrigin}$path';
+
+  final uri = Uri.tryParse(fullUrl);
+  if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open file: $fullUrl')),
+      );
+    }
+  }
+}
+/*Future<void> _openFile(dynamic submission) async {
+  final rawUrl = submission['file'] ?? submission['file_url'];
+  if (rawUrl == null || rawUrl.toString().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No file attached to this submission.')),
+    );
+    return;
+  }
+
+  String fileUrl = rawUrl.toString();
+  if (!fileUrl.startsWith('http')) {
+    // adjust to however ApiService exposes the host, e.g. ApiService.baseUrl
+    fileUrl = '${ApiService.baseUrl}$fileUrl';
+  }
+
+  final uri = Uri.tryParse(fileUrl);
+  if (uri == null) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid file URL.')),
+      );
+    }
+    return;
+  }
+
+  final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!launched && mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open file.')),
+    );
+  }
+}*/
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -317,6 +393,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
                         ListTile(
                           title: Text(s['title'] ?? ''),
                           subtitle: Text(feedback.isNotEmpty ? 'Feedback: $feedback' : 'Awaiting review'),
+                          onTap: () => _openFile(s),
                         ),
                         const Divider(height: 1),
                         Row(

@@ -86,7 +86,7 @@ class MyApp extends StatelessWidget {
         cardTheme: CardThemeData(color: Colors.white),
       ),
       //home: const EmhecailCkScreen(),
-      home :const OtpVerificationScreen(),
+      home :const StudentLogin(),
      // initialRoute: '/reg', // Set the initial route to the registration page
       routes: {
         

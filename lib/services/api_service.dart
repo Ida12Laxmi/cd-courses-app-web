@@ -60,7 +60,10 @@ class ApiService {
     _checkOk(res);
     return jsonDecode(res.body);
   }
-
+ static String get mediaOrigin {
+    final uri = Uri.parse(baseUrl);
+    return '${uri.scheme}://${uri.host}:${uri.port}';
+  }
   static Future<void> submitAssignment({
     required int studentId,
     required String title,

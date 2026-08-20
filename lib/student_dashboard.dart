@@ -211,40 +211,58 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           ),
         ],
       ),
-      body: GridView.builder(
-        
+      body: Padding(
         padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 0.9,
-        ),
-        itemCount: contentTypes.length,
-        itemBuilder: (context, i) {
-          final item = contentTypes[i];
-          return InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => _open(context, item),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  
-                  Icon(item.icon, size: 32),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(item.label, textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12)),
-                  ),
-                ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.studentName.isNotEmpty) ...[
+              Text(
+                'Welcome, ${widget.studentName}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF212529),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.9,
+                ),
+                itemCount: contentTypes.length,
+                itemBuilder: (context, i) {
+                  final item = contentTypes[i];
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => _open(context, item),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(item.icon, size: 32),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(item.label, textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
