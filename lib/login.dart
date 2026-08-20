@@ -29,6 +29,7 @@ class _StudentLoginState extends State<StudentLogin> {
     }
   }
 
+  bool _isObscured = true;
 
   bool _isLoading = false;
 
@@ -151,11 +152,25 @@ if (fcmToken != null) {
                             decoration: const InputDecoration(labelText: 'Email'),
                           ),
                           const SizedBox(height: 20),
-                          TextField(
-                            controller: password,
-                            decoration: const InputDecoration(labelText: 'Password'),
-                            obscureText: true,
+                        TextField(
+                          controller:password,
+                          //decoration: const InputDecoration(labelText: 'Password',),
+                          obscureText: _isObscured,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _isObscured ? Icons.visibility : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isObscured = !_isObscured;
+                                });
+                              },
+                            ),
                           ),
+                          
+                        ),
                           const SizedBox(height: 30),
                           SizedBox(
                             width: double.infinity,

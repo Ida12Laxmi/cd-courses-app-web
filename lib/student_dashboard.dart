@@ -230,10 +230,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             Expanded(
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
+                  crossAxisCount: 2,
                   mainAxisSpacing: 16,
                   crossAxisSpacing: 16,
-                  childAspectRatio: 0.9,
+                  childAspectRatio: 1.1,
                 ),
                 itemCount: contentTypes.length,
                 itemBuilder: (context, i) {
@@ -242,17 +242,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     borderRadius: BorderRadius.circular(16),
                     onTap: () => _open(context, item),
                     child: Card(
-                      elevation: 2,
+                      elevation: 3,
+                      shadowColor: Colors.black26,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(item.icon, size: 32),
+                          Icon(item.icon, size: 40,color: const Color(0xFF0B8081),),
+
                           const SizedBox(height: 8),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(item.label, textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 12)),
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF013768),)),
                           ),
                         ],
                       ),
