@@ -6,7 +6,6 @@ class AddStudentForm extends StatefulWidget {
   final int teacherId;
   // Pass an existing student to edit them instead of creating a new one.
   final dynamic existingStudent;
-  
 
   const AddStudentForm({super.key, required this.teacherId, this.existingStudent});
 
@@ -23,7 +22,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
   final TextEditingController addressController = TextEditingController();
   final TextEditingController subjectController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController password=TextEditingController();
+  final TextEditingController password = TextEditingController();
 
   String _level = 'Basic';
   bool _isLoading = false;
@@ -43,7 +42,6 @@ class _AddStudentFormState extends State<AddStudentForm> {
       subjectController.text = s['subject']?.toString() ?? '';
       phoneController.text = s['phone']?.toString() ?? '';
       _level = _levels.contains(s['level']) ? s['level'] : 'Basic';
-      password.text=s['password']?.toString()?? '';
     }
   }
 
@@ -62,7 +60,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
       return;
     }
 
-    if(password.text.trim().isEmpty){
+    if (!_isEditing && password.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password is required')),
       );
@@ -82,7 +80,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
         ? Uri.parse('$_baseUrl/accounts/students/update/$_existingId/')
         : Uri.parse('$_baseUrl/accounts/students/');
 
-    final body = jsonEncode({
+    final Map<String, dynamic> payload = {
       'teacher': widget.teacherId,
       'username': usernameController.text.trim(),
       'email': emailController.text.trim(),
@@ -90,8 +88,11 @@ class _AddStudentFormState extends State<AddStudentForm> {
       'subject': subjectController.text.trim(),
       'phone': phoneController.text.trim(),
       'level': _level,
-      'password': password.text.trim(),
-    });
+    };
+    if (!_isEditing) {
+      payload['password'] = password.text.trim();
+    }
+    final body = jsonEncode(payload);
 
     try {
       final response = _isEditing
@@ -129,68 +130,75 @@ class _AddStudentFormState extends State<AddStudentForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(title: Text(_isEditing ? 'Edit Student' : 'Add Student'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Edit Student' : 'Add Student'),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: ListView( 
+        child: ListView(
           children: [
             TextField(
               controller: usernameController,
-              decoration: const InputDecoration(labelText: 'Student Name', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
+              decoration: const InputDecoration(labelText: 'Student Name', border: OutlineInputBorder(), fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
+              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(), fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
+              decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder(), fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: addressController,
-              decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
+              decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder(), fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 15),
             TextField(
               controller: subjectController,
-              decoration: const InputDecoration(labelText: 'Subject', border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
+              decoration: const InputDecoration(labelText: 'Subject', border: OutlineInputBorder(), fillColor: Color(0xFFF5F5F5), filled: true),
             ),
             const SizedBox(height: 20),
             const Text('Level', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _level,
-              decoration: const InputDecoration(border: OutlineInputBorder(),fillColor: Color(0xFFF5F5F5), filled: true),
+              decoration: const InputDecoration(border: OutlineInputBorder(), fillColor: Color(0xFFF5F5F5), filled: true),
               items: _levels
                   .map((lvl) => DropdownMenuItem(value: lvl, child: Text(lvl)))
                   .toList(),
               onChanged: (v) => setState(() => _level = v ?? 'Basic'),
             ),
-            const SizedBox(height:8),
-            TextField(
-                            controller: password,
-                            obscureText: _isObscured,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              border: OutlineInputBorder(),
-                              suffixIcon: IconButton(
-                              icon: Icon(
-                                _isObscured ? Icons.visibility : Icons.visibility_off,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isObscured = !_isObscured;
-                                });
-                              },
-                            ),
-                            fillColor: Color(0xFFF5F5F5), filled: true,
-                            ),
-                          ),
+            if (!_isEditing) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: password,
+                obscureText: _isObscured,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isObscured ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isObscured = !_isObscured;
+                      });
+                    },
+                  ),
+                  fillColor: const Color(0xFFF5F5F5),
+                  filled: true,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             const Text(
               'You can change this level anytime later from the student list.',
@@ -200,13 +208,11 @@ class _AddStudentFormState extends State<AddStudentForm> {
             SizedBox(
               width: double.infinity,
               height: 50,
-            
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromRGBO(246, 148, 36, 1),
-                                
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                              ),
+                  backgroundColor: const Color.fromRGBO(246, 148, 36, 1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                ),
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)

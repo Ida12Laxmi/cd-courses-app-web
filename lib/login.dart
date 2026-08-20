@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'teacherdashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'teacher_forgot_screen.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -187,8 +188,16 @@ class _LoginState extends State<Login>{
                               Navigator.pushNamed(context, '/reg'); // Navigate to login page
                             },
                             child:
-                          const Text("Don't have an account? Register here", style: TextStyle(color: Color(0xFF0B8081), decoration:TextDecoration.underline,)), 
-                          )
+                          const Text("Don't have an account? Register here", style: TextStyle(color: Color(0xFF0B8081))), 
+                          ),
+                          const SizedBox(height: 20),
+                          GestureDetector(
+                          onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const TeacherForgotPasswordScreen()),
+                          ),
+                          child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF0B8081))),
+                          ),
                         
                       ],
                     ),

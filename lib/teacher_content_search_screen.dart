@@ -143,7 +143,7 @@ class _TeacherContentSearchScreenState extends State<TeacherContentSearchScreen>
 
     return ListView.separated(
       itemCount: _results.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, i) {
         final item = _results[i];
         final type = item['content_type']?.toString() ?? '';
