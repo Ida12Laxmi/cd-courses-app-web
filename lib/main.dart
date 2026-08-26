@@ -88,11 +88,12 @@ class MyApp extends StatelessWidget {
        // colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         cardTheme: CardThemeData(color: Colors.white),
       ),
-      home: const Registration(), // Set the home page to the registration page
+      home: const Login(), // Set the home page to the registration page
       initialRoute: '/login', // Set the initial route to the registration page
       routes: {
         '/reg': (context) => const Registration(),
         '/login': (context) => const Login(),
+        
         
       },
     );

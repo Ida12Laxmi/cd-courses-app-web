@@ -71,8 +71,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime(2026),
+      lastDate: DateTime.now().add(const Duration(days: 0)),
     );
     if (picked != null) {
       setState(() => _selectedDate = picked);

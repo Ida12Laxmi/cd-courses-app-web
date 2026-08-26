@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'teacherdashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'teacher_forgot_screen.dart';
+import 'otp_verification_screen.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -118,10 +119,7 @@ class _LoginState extends State<Login>{
                   'Click-digitals Courses App',
                   style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('Login', style: TextStyle(color: Colors.white)),
-                ),
+               
               ],
             ),
           ),
@@ -182,14 +180,22 @@ class _LoginState extends State<Login>{
                           
                         ),
                         const SizedBox(height: 20),
+                        TextButton(
+                      style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const OtpVerificationScreen()),
+                        );
+                      },
+                      child: const Text('Not verified? Go to OTP Verification', style: TextStyle(color: Color(0xFF0B8081))),
+                    ),
                           
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.pushNamed(context, '/reg'); // Navigate to login page
-                            },
-                            child:
-                          const Text("Don't have an account? Register here", style: TextStyle(color: Color(0xFF0B8081))), 
-                          ),
+                          
                           const SizedBox(height: 20),
                           GestureDetector(
                           onTap: () => Navigator.push(

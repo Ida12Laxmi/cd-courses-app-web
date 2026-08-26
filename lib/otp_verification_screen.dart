@@ -4,8 +4,11 @@ import 'package:http/http.dart' as http;
 import 'login.dart'; // adjust if your Login widget lives in a different file
 
 class OtpVerificationScreen extends StatefulWidget {
-  final String email;
-  const OtpVerificationScreen({super.key, required this.email});
+  // Made optional + still editable on screen — if the previous screen
+  // passes an email (e.g. right after registration) it pre-fills the
+  // field, but the user can still change it if needed.
+  final String? email;
+  const OtpVerificationScreen({super.key, this.email});
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -14,11 +17,33 @@ class OtpVerificationScreen extends StatefulWidget {
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   static const String _baseUrl = 'http://192.168.0.196:8000';
 
+  late final TextEditingController emailController;
   final TextEditingController otpController = TextEditingController();
   bool _isVerifying = false;
   bool _isResending = false;
 
+  @override
+  void initState() {
+    super.initState();
+    emailController = TextEditingController(text: widget.email ?? '');
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    otpController.dispose();
+    super.dispose();
+  }
+
+  String get _email => emailController.text.trim();
+
   Future<void> _verifyOtp() async {
+    if (_email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your email')),
+      );
+      return;
+    }
     if (otpController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter the code')),
@@ -32,7 +57,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       final response = await http.post(
         Uri.parse('$_baseUrl/accounts/verify-otp/'),
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode({'email': widget.email, 'otp': otpController.text.trim()}),
+        body: jsonEncode({'email': _email, 'otp': otpController.text.trim()}),
       );
 
       final data = jsonDecode(response.body);
@@ -67,13 +92,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _resendOtp() async {
+    if (_email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your email first')),
+      );
+      return;
+    }
+
     setState(() => _isResending = true);
 
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/accounts/resend-otp/'),
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode({'email': widget.email}),
+        body: jsonEncode({'email': _email}),
       );
 
       final data = jsonDecode(response.body);
@@ -94,12 +126,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
+  void _goToLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const Login()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    const navy = Color(0xFF013768);
+    const teal = Color(0xFF0F766E);
+    const linkPurple = Color(0xFF5B4FCF);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF013768),
+        backgroundColor: navy,
         title: const Text('Verify Email', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -116,14 +160,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.mark_email_read, size: 48, color: Color(0xFF212529)),
+                    const Icon(Icons.mark_email_read, size: 48, color: navy),
                     const SizedBox(height: 15),
-                    Text(
-                      'We sent a 6-digit code to\n${widget.email}',
+                    const Text(
+                      'Enter your email and the verification\ncode sent to it',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 15),
+                      style: TextStyle(fontSize: 15),
                     ),
                     const SizedBox(height: 25),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
                     TextField(
                       controller: otpController,
                       keyboardType: TextInputType.number,
@@ -142,7 +195,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF212529),
+                          backgroundColor: teal,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         onPressed: _isVerifying ? null : _verifyOtp,
@@ -154,7 +207,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     const SizedBox(height: 15),
                     TextButton(
                       onPressed: _isResending ? null : _resendOtp,
-                      child: Text(_isResending ? 'Sending...' : "Didn't get a code? Resend"),
+                      child: Text(
+                        _isResending ? 'Sending...' : "Didn't get a code? Resend",
+                        style: const TextStyle(color: linkPurple),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Divider(),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: _goToLogin,
+                      child: const Text(
+                        'Already verified? Go to Login',
+                        style: TextStyle(color: linkPurple),
+                      ),
                     ),
                   ],
                 ),
