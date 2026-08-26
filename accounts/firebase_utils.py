@@ -16,6 +16,12 @@ def send_push_to_user(role, user_id, title, body):
     message = messaging.MulticastMessage(
         notification=messaging.Notification(title=title, body=body),
         tokens=tokens,
+        android=messaging.AndroidConfig(
+            notification=messaging.AndroidNotification(
+                icon='ic_stat_notify',       # matches drawable-*/ic_stat_notify.png
+                color='#013768',             # tint applied to the white silhouette
+            )
+        ),
     )
     try:
         messaging.send_each_for_multicast(message)

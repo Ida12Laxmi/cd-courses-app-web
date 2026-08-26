@@ -78,7 +78,7 @@ urlpatterns = [
     path('notifications/read-all/<int:teacher_id>/', views.mark_all_read, name='mark_all_read'),
     path('notifications/read-all/student/<int:student_id>/', views.mark_all_read_student, name='mark_all_read_student'),
    
-    path('notifications/delete/<int:notif_id>/', views.delete_notifications, name='delete_notifications'),
+    path('notifications/delete/<int:notif_id>/', views.delete_notification, name='delete_notification'),
 
     path('students/<int:student_id>/assignments/submit/', views.submit_assignment, name='submit_assignment'),
     path('students/<int:student_id>/projects/submit/', views.submit_project, name='submit_project'),
@@ -106,7 +106,46 @@ urlpatterns = [
    path('projects/feedback/<int:psid>/', views.project_feedback,name='project_feedback'),
    path('projects/delete/<int:psid>/', views.delete_project,name='delete_project'),
 
+
+#searchofsubmissions
    path('students/<int:student_id>/<str:content_type>/search/', views.student_search_submissions, name='student_search_submissions'),
 
    path('student/change-password/<int:student_id>/', views.change_student_password, name='change_student_password'),
+
+   #reset password of teacher and student
+   path('forgot-password/', views.forgot_password_teacher, name='forgot_password_teacher'),
+   path('reset-password/', views.reset_password_teacher, name='reset_password_teacher'),
+   path('students/forgot-password/', views.forgot_password_student, name='forgot_password_student'),
+   path('students/reset-password/', views.reset_password_student, name='reset_password_student'),
+
+   #register-admin
+   path('register_admin/',views.register_admin, name='register_admin'),
+   path('login_adminside/',views.login_adminside,name='login_adminside'),
+
+   #count
+   # accounts/urls.py
+   path('dashboard_stats/', views.dashboard_stats, name='dashboard_stats'),
+
+   path('dashboard_charts/', views.dashboard_charts, name='dashboard_charts'),
+   path('dashboard_activity/', views.dashboard_activity, name='dashboard_activity'),
+
+   path('list_teachers/',views.list_teachers,name='list_teachers'),
+   path('update_teacher/<int:teacher_id>/',views.update_teacher, name='update_teacher'),
+   path('delete_teacher/<int:teacher_id>/',views.delete_teacher,name='delete_teacher'),
+
+   path('list_students/',views.list_students_all,name='list_students_all'),
+
+   path('list_attendance/',views.list_attendance,name='list_attendance'),
+
+   path('list_bills/',views.list_bills,name='list_bills'),
+
+   path('list_timetables/',views.list_timetables,name='list_timetables'),
+
+   path('list_certificate/', views.list_certificate,name='list_certificate'),
+
+   path('list_announcement/',views.list_announcement,name='list_announcement'),
+
+   path('admin_notifications/', views.admin_notifications, name='admin_notifications'),
+   path('mark_all_read_admin/', views.mark_all_read_admin, name='mark_all_read_admin'),
+
 ]

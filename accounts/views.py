@@ -1,7 +1,9 @@
 from json import load
 from django.shortcuts import render
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 import re
+from calendar import month_abbr
+from django.db.models.functions import TruncMonth
 from django.http import FileResponse, HttpResponse, Http404
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.response import Response
@@ -10,8 +12,8 @@ from django.contrib.auth.hashers import make_password,check_password
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from dotenv import load_dotenv
-from .serializers import StudentSerializer, TeacherSerializer, ContentSerializer, QuizSerializer, QuestionSerializer, QuizPublicSerializer, QuizResultSerializer, AssignmentSubmissionSerializer, ProjectSubmissionSerializer, ConversationSerializer,MessageSerializer,ReactionSerializer, AttendanceSerializer, BillSerializer,TeacherPaymentQrSerializer,BillWithStudentSerializer,NotificationSerializer
-from .models import DeviceToken, Student, Teacher,CourseContent, Quiz, Question, QuizResult, StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification,DeviceToken
+from .serializers import StudentSerializer, TeacherSerializer, ContentSerializer, QuizSerializer, QuestionSerializer, QuizPublicSerializer, QuizResultSerializer, AssignmentSubmissionSerializer, ProjectSubmissionSerializer, ConversationSerializer,MessageSerializer,ReactionSerializer, AttendanceSerializer, BillSerializer,TeacherPaymentQrSerializer,BillWithStudentSerializer,NotificationSerializer,AdminSideSerializer
+from .models import DeviceToken, Student, Teacher,CourseContent, Quiz, Question, QuizResult, StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification,DeviceToken,AdminSide
 from .firebase_utils import send_push_to_user, notify_student
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -199,6 +201,16 @@ def register_student(request):
             otp=otp,
             otp_created_at=timezone.now(),
         )
+        Notification.objects.create(
+            teacher=None,
+            student=student,
+            recipient='admin',
+            notif_type='student_registered',
+            title='New student registered',
+            message=f'{student.username} ({student.email}) just registered.',
+            related_id=student.sid,
+
+        )
 
         email_sent = True
         try:
@@ -310,10 +322,18 @@ def login_student(request):
         return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
 
     if not student.is_verified:
-        return Response({"error": "Email not verified. Please verify your email first."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"error": "Email not verified. Please verify your email first.", "needs_verification": True}, status=status.HTTP_403_FORBIDDEN)
+
+    #Fixed manual jwt token generation
+    refresh=RefreshToken()
+    refresh['user_id']=student.sid
 
     return Response({
         "message": "Login successful!",
+        "tokens":{
+            "refresh":str(refresh),
+            "access":str(refresh.access_token),
+        },
         "student": {
             "sid": student.sid,
             "username": student.username,
@@ -331,50 +351,21 @@ def list_students(request,teacher_id):
     serializer=StudentSerializer(students,many=True)
     return Response(serializer.data)
 
-@api_view(['PUT','PATCH'])
+@api_view(['PUT', 'PATCH'])
 @permission_classes([AllowAny])
-def update_students(request,student_id):
+def update_students(request, student_id):
     try:
-        student=Student.objects.get(sid=student_id)
+        student = Student.objects.get(sid=student_id)
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
-    serializer=StudentSerializer(student, data=request.data, partial=True)
+
+    data = request.data.copy()
+    data.pop('password', None)  # password changes are not handled through this endpoint
+
+    serializer = StudentSerializer(student, data=data, partial=True)
     if serializer.is_valid():
-            hashed_pwd = make_password(request.data.get('password'))
-            otp = generate_otp()
-            student = serializer.save(
-                password=hashed_pwd,
-                is_verified=False,
-                otp=otp,
-                otp_created_at=timezone.now(),
-            )
-    
-            email_sent = True
-            try:
-                send_mail(
-                    subject='Verify your Click-digitals account',
-                    message=f'Your verification code is: {otp}\nThis code expires in 10 minutes.',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[student.email],
-                    fail_silently=False,
-                )
-            except Exception as e:
-                email_sent = False
-                print(f'Failed to send verification email: {e}')
-    
-            return Response(
-                {
-                    "message": (
-                        "Account created. Please check your email for the verification code."
-                        if email_sent else
-                        "Account created, but we couldn't send the verification email right now. "
-                        "Use the Resend Code option once the issue is fixed."
-                    ),
-                    "email": student.email,
-                    "email_sent": email_sent,
-                },
-                status=status.HTTP_201_CREATED
-            )
+        serializer.save()
+        return Response(StudentSerializer(student).data, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE'])
@@ -404,7 +395,22 @@ def upload_content(request):
                 message=f'New {content.content_type} content has been uploaded by your teacher.',
                 related_id=content.cid
             )
-
+        ADMIN_NOTIFY_TYPES = {
+            'certificate': ('certificate_uploaded', 'New certificate uploaded'),
+            'time table': ('timetable_uploaded', 'New timetable uploaded'),
+            'announcement': ('announcement_published', 'New announcement published'),
+        }
+        if content.content_type in ADMIN_NOTIFY_TYPES:
+            notif_type, title = ADMIN_NOTIFY_TYPES[content.content_type]
+            teacher_name = content.teacher.username if content.teacher else 'A teacher'
+            Notification.objects.create(
+                teacher=content.teacher,
+                recipient='admin',
+                notif_type=notif_type,
+                title=title,
+                message=f'{teacher_name} uploaded "{content.title}".',
+                related_id=content.cid,
+            )
         return Response({"message":"content upload successfully"}, status=status.HTTP_201_CREATED)
     print(serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -798,6 +804,22 @@ def save_attendance(request):
             )
         except Student.DoesNotExist:
             pass  # Skip notification if student does not exist
+
+        try:
+            teacher_obj=Teacher.objects.get(tid=teacher_id)
+            teacher_name=teacher_obj.username
+        except Teacher.DoesNotExist:
+            pass
+        Notification.objects.create(
+        teacher=teacher_obj,
+        recipient='admin',
+        notif_type='attendance_marked',
+        title='Attendance marked',
+        message=f'{teacher_name} marked attendance for {date_str} ({len(records)} student(s)).',
+        related_id=None,
+    )
+
+
     return Response({"message": "Attendance saved successfully"}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
@@ -877,6 +899,14 @@ def create_bill(request):
             title=f'"{bill.title}" — Rs. {bill.amount}',
             message='A new bill has been created for you. Please check your account for details.',
             related_id=bill.bid
+        )
+        Notification.objects.create(
+            teacher=bill.teacher,
+            recipient='admin',
+            notif_type='bill_generated',
+            title='New bill generated',
+            message=f'{bill.teacher.username} billed {bill.student.username} — Rs. {bill.amount} for "{bill.title}".',
+            related_id=bill.bid,
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1041,13 +1071,13 @@ def mark_all_read_student(request, student_id):
 
 @api_view(['DELETE'])
 @permission_classes([AllowAny])
-def delete_notifications(request, teacher_id):
+def delete_notification(request, notif_id):
     try:
-        notifications=Notification.objects.filter(teacher_id=teacher_id)
+        notification = Notification.objects.get(nid=notif_id)
     except Notification.DoesNotExist:
-        return Response({"error": "No notifications found for this teacher"}, status=status.HTTP_404_NOT_FOUND)
-    notifications.delete()
-    return Response({"message": "All notifications deleted successfully"}, status=status.HTTP_200_OK)
+        return Response({"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND)
+    notification.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -1304,9 +1334,6 @@ def delete_assignment(request, asid):
     return Response({"message": "Submission deleted successfully"}, status=status.HTTP_200_OK)
 
 
-
-
-
 # --- Project feedback / update / delete (mirrors assignment) ---
 
 @api_view(['PATCH'])
@@ -1464,3 +1491,456 @@ def change_student_password(request, student_id):
     student.password = make_password(new_password)
     student.save()
     return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password_teacher(request):
+    email=request.data.get('email','').strip()
+    if not email:
+        return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        teacher=Teacher.objects.get(email__iexact=email)
+    except Teacher.DoesNotExist:
+        return Response({"message": "If that email is registered, a reset code has been sent."}, status=status.HTTP_200_OK)
+
+    otp=generate_otp()
+    teacher.otp=otp
+    teacher.otp_created_at=timezone.now()
+    teacher.save()
+
+    send_mail(
+        subject='Reset your Click-digitals password',
+        message=f'Your password reset code is: {otp}\nThis code expires in 10 minutes.',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[teacher.email],
+        fail_silently=False,
+    )
+    return Response({"message": "If that email is registered, a reset code has been sent."}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password_teacher(request):
+    email=request.data.get('email','').strip()
+    otp=request.data.get('otp')
+    new_password=request.data.get('new_password')
+
+    if not email or not otp or not new_password:
+        return Response({"error": "Email, code, and new password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password)<6:
+        return Response({"error": "New password must be at least 6 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        teacher=Teacher.objects.get(email__iexact=email)
+    except Teacher.DoesNotExist:
+        return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not teacher.otp or teacher.otp !=otp:
+        return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+    if teacher.otp_created_at and timezone.now() > teacher.otp_created_at + timedelta(minutes=10):
+        return Response({"error": "Code expired, please request a new one"}, status=status.HTTP_400_BAD_REQUEST)
+
+    teacher.password=make_password(new_password)
+    teacher.otp=None
+    teacher.otp_created_at=None
+    teacher.save()
+    return Response({"message": "Password reset successfully!"}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password_student(request):
+    email=request.data.get('email','').strip()
+    if not email:
+        return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        student=Student.objects.get(email__iexact=email)
+    except Student.DoesNotExist:
+        return Response({"message": "If that email is registered, a reset code has been sent."}, status=status.HTTP_200_OK)
+
+    otp=generate_otp()
+    student.otp=otp
+    student.otp_created_at=timezone.now()
+    student.save()
+
+    send_mail(
+        subject='Reset your Click-digitals password',
+        message=f'Your password reset code is: {otp}\nThis code expires in 10 minutes.',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[student.email],
+        fail_silently=False,
+    )
+    return Response({"message": "If that email is registered, a reset code has been sent."}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password_student(request):
+    email=request.data.get('email','').strip()
+    otp=request.data.get('otp')
+    new_password=request.data.get('new_password')
+
+    if not email or not otp or not new_password:
+        return Response({"error": "Email, code, and new password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password)<6:
+        return Response({"error": "New password must be at least 6 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        student=Student.objects.get(email__iexact=email)
+    except Student.DoesNotExist:
+        return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not student.otp or student.otp !=otp:
+        return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+    if student.otp_created_at and timezone.now() > student.otp_created_at + timedelta(minutes=10):
+        return Response({"error": "Code expired, please request a new one"}, status=status.HTTP_400_BAD_REQUEST)
+
+    student.password=make_password(new_password)
+    student.otp=None
+    student.otp_created_at=None
+    student.save()
+    return Response({"message": "Password reset successfully!"}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_admin(request):
+    serializer=AdminSideSerializer(data=request.data)
+
+    if serializer.is_valid():
+        hashed_pwd=make_password(request.data.get('password'))
+        serializer.save(password=hashed_pwd)
+
+        return Response(
+            {"message":"User created successfully"},status=status.HTTP_201_CREATED
+        )
+    print(serializer.errors)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def login_adminside(request):
+    email = request.data.get('email')
+    password = request.data.get('password')
+
+    if not email or not password:
+        return Response(
+            {"error": "Email and password are required."}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        admin = AdminSide.objects.get(email__iexact=email)
+        
+        if check_password(password, admin.password):
+            # Manually instantiate RefreshToken to bypass default `id` check
+            refresh = RefreshToken()
+            
+            # Embed primary key 'aid' and 'email' directly into token payload
+            refresh['user_id'] = admin.aid
+            refresh['email'] = admin.email
+
+            return Response({
+                "message": "Login successful!",
+                "tokens": {
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
+                },
+                "admin": {
+                    "aid": admin.aid,
+                    "fullname": admin.fullname,
+                    "email": admin.email,
+                }
+            }, status=status.HTTP_200_OK)
+        
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    except AdminSide.DoesNotExist:
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def dashboard_stats(request):
+    teacher_count=Teacher.objects.count()
+    student_count=Student.objects.count()
+
+    raw_subjects=Teacher.objects.exclude(subject__isnull=True).exclude(subject__exact='').values_list('subject',flat=True)
+    normalized={s.strip().lower() for s in raw_subjects if s.strip()}
+    course_count=len(normalized)
+
+    return Response({
+        "teacher_count":teacher_count,
+        "student_count":student_count,
+        "course_count":course_count
+    },status=status.HTTP_200_OK)
+
+def _last_n_months(n=6):
+    today=timezone.now().date()
+    year,month=today.year, today.month
+    months=[]
+    for _ in range(n):
+        months.append((year, month))
+        month-=1
+        if month == 0:
+            month=12
+            year-= 1
+    return list(reversed(months))
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def dashboard_charts(request):
+    months=_last_n_months(6)
+
+    #--Student enrollment trend--
+    enrollment_qs=(
+        Student.objects.annotate(month=TruncMonth('added_at')).values('month').annotate(count=Count('sid'))
+        )
+    enrollment_map={(m['month'].year,m['month'].month):m['count'] for m in enrollment_qs if m['month']}
+    enrollment=[
+        {'label':month_abbr[mo], "count":enrollment_map.get((yr,mo),0)} for yr,mo in months
+    ]
+    revenue_qs = (
+        Bill.objects.filter(status='paid', paid_date__isnull=False)
+        .annotate(month=TruncMonth('paid_date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+    )
+    revenue_map={(m['month'].year,m['month'].month):float(m['total']) for m in revenue_qs if m['month']}
+    revenue = [
+        {"label": month_abbr[mo], "count": revenue_map.get((yr, mo), 0)}
+        for yr, mo in months
+    ]
+    attendance_by_month={}
+    for a in Attendance.objects.all():
+        key=(a.date.year, a.date.month)
+        stats=attendance_by_month.setdefault(key,{'present': 0, 'total': 0})
+        stats['total']+=1
+        if a.status == 'present':
+            stats['present']+= 1
+    attendance=[]
+    for yr,mo in months:
+        stats = attendance_by_month.get((yr, mo))
+        pct = round(stats['present'] / stats['total'] * 100, 1) if stats and stats['total'] else 0
+        attendance.append({"label": month_abbr[mo], "count": pct})
+        raw_subjects = Student.objects.exclude(subject__isnull=True).exclude(subject__exact='') \
+                                   .values_list('subject', flat=True)
+    counts = {}
+    for s in raw_subjects:
+        key = s.strip().lower()
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+
+    course_enrollment = [
+        {"label": key.title(), "count": val}
+        for key, val in sorted(counts.items(), key=lambda x: -x[1])
+    ][:8]
+
+    return Response({
+        "enrollment": enrollment,
+        "revenue": revenue,
+        "attendance": attendance,
+        "course_enrollment": course_enrollment,
+    }, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def dashboard_activity(request):
+    activities = []
+
+    for s in Student.objects.order_by('-added_at')[:5]:
+        activities.append({
+            "id": f"student-{s.sid}",
+            "color": "green",
+            "text": f"New student registered — {s.username}",
+            "timestamp": s.added_at.isoformat(),
+        })
+
+    for c in CourseContent.objects.exclude(content_type='announcement').order_by('-created_at')[:5]:
+        teacher_name = c.teacher.username if c.teacher else "A teacher"
+        activities.append({
+            "id": f"content-{c.cid}",
+            "color": "green",
+            "text": f'{teacher_name} uploaded {c.content_type}: "{c.title}"',
+            "timestamp": c.created_at.isoformat(),
+        })
+
+    for r in QuizResult.objects.select_related('quiz', 'student').order_by('-submitted_at')[:5]:
+        activities.append({
+            "id": f"quiz-{r.rid}",
+            "color": "yellow",
+            "text": f'{r.student.username} completed "{r.quiz.title}" ({r.score}/{r.total_questions})',
+            "timestamp": r.submitted_at.isoformat(),
+        })
+
+    for a in CourseContent.objects.filter(content_type='announcement').order_by('-created_at')[:5]:
+        activities.append({
+            "id": f"announcement-{a.cid}",
+            "color": "blue",
+            "text": f'New announcement published: "{a.title}"',
+            "timestamp": a.created_at.isoformat(),
+        })
+
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    return Response(activities[:10], status=status.HTTP_200_OK)
+     
+@api_view(['GET'])       
+@permission_classes([AllowAny])
+def list_teachers(request):
+    teachers=Teacher.objects.all().order_by('username').values('tid','username','email','address','subject','gender','phone', 'is_verified')
+    return Response(list(teachers),status=status.HTTP_200_OK)
+
+@api_view(['PUT','PATCH'])
+@permission_classes([AllowAny])
+def update_teacher(request,teacher_id):
+    try:
+        teacher=Teacher.objects.get(tid=teacher_id)
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    data=request.data.copy()
+    data.pop('password',None)
+
+    serializer=TeacherSerializer(teacher,data=data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(TeacherSerializer(teacher).data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def delete_teacher(request,teacher_id):
+    try:
+        teacher=Teacher.objects.get(tid=teacher_id)
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    teacher.delete()
+    return Response({"message": "Teacher deleted successfully"}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])       
+@permission_classes([AllowAny])
+def list_students_all(request):
+    student=Student.objects.select_related('teacher').all().order_by('username').values(
+        'sid', 'username', 'email', 'address', 'subject', 'phone',
+        'level', 'is_verified', 'teacher__tid', 'teacher__username'
+    )
+    return Response(list(student),status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_attendance(request):
+    teacher_name=request.query_params.get('teacher','').strip()
+
+    records=Attendance.objects.select_related('student','teacher').all()
+    if teacher_name:
+        records = records.filter(teacher__username__icontains=teacher_name)
+        
+    records = records.order_by('-date').values(
+        'aid', 'date', 'status', 'remarks',
+        'student__sid', 'student__username',
+        'teacher__tid', 'teacher__username',
+    )
+    return Response(list(records), status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_bills(request):
+    status_filter = request.query_params.get('status', '').strip()
+    bills = Bill.objects.select_related('student', 'teacher').all()
+
+    if status_filter:
+        bills = bills.filter(status=status_filter)
+
+    bills = bills.order_by('-created_at').values(
+        'bid', 'title', 'amount', 'due_date', 'remarks', 'status',
+        'payment_method', 'transaction_code', 'transaction_uuid',
+        'payment_screenshot', 'paid_date', 'created_at',
+        'student__sid', 'student__username',
+        'teacher__tid', 'teacher__username',
+    )
+
+    bills_list = list(bills)
+    for b in bills_list:
+        if b['payment_screenshot']:
+            b['payment_screenshot'] = request.build_absolute_uri(
+                settings.MEDIA_URL + str(b['payment_screenshot'])
+            )
+    return Response(bills_list, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_timetables(request):
+    teacher_name = request.query_params.get('teacher', '').strip()
+
+    contents = CourseContent.objects.select_related('teacher').filter(content_type='time table')
+
+    if teacher_name:
+        contents = contents.filter(teacher__username__icontains=teacher_name)
+
+    contents = contents.order_by('-created_at').values(
+        'cid', 'title', 'file', 'video_link', 'level',
+        'description', 'created_at',
+        'teacher__tid', 'teacher__username',
+    )
+
+    contents_list = list(contents)
+    for c in contents_list:
+        if c['file']:
+            c['file'] = request.build_absolute_uri(
+                settings.MEDIA_URL + str(c['file'])
+            )
+    return Response(contents_list, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_certificate(request):
+    teacher_name=request.query_params.get('teacher','').strip()
+
+    contents=CourseContent.objects.select_related('teacher').filter(content_type='certificate')
+
+    if teacher_name:
+        contents=contents.order_by('-created_at').values('cid', 'title', 'file', 'video_link', 'level',
+        'description', 'created_at',
+        'teacher__tid', 'teacher__username',
+        )
+    contents_list=list(contents)
+    for c in contents_list:
+        if c['file']:
+            c['file']=request.build_absolute_uri(
+                settings.MEDIA_URL + str(c['file'])
+            )
+    return Response(contents_list, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_announcement(request):
+    teacher_name=request.query_params.get('teacher','').strip()
+
+    contents=CourseContent.objects.select_related('teacher').filter(content_type='anouncement')
+
+    if teacher_name:
+        contents=contents.order_by('-created_at').values('cid', 'title', 'file', 'video_link', 'level',
+        'description', 'created_at',
+        'teacher__tid', 'teacher__username',
+        )
+    contents_list=list(contents)
+    for c in contents_list:
+        if c['file']:
+            c['file']=request.build_absolute_uri(
+                settings.MEDIA_URL + str(c['file'])
+            )
+    return Response(contents_list, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def admin_notifications(request):
+    notifications = Notification.objects.filter(recipient='admin').order_by('-created_at')[:50]
+    serializer = NotificationSerializer(notifications, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def mark_all_read_admin(request):
+    Notification.objects.filter(recipient='admin', is_read=False).update(is_read=True)
+    return Response({'status': 'all marked read'}, status=status.HTTP_200_OK)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Teacher,Student,CourseContent,Quiz, Question, QuizResult,StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification
+from .models import Teacher,Student,CourseContent,Quiz, Question, QuizResult,StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification,AdminSide
 
 class TeacherSerializer(serializers.ModelSerializer):
     class Meta:
@@ -115,3 +115,10 @@ class NotificationSerializer(serializers.ModelSerializer):
         model=Notification
         fields=['nid', 'teacher', 'student', 'recipient', 'notif_type', 'title', 'message', 'related_id', 'is_read', 'created_at', 'student_name']
         #fields = '__all__'
+
+class AdminSideSerializer(serializers.ModelSerializer):
+    #admin_name=serializers.CharField(source='admin.fullname', read_only=True)
+
+    class Meta:
+        model=AdminSide
+        fields=['aid','fullname','email','phone','address','gender','password']

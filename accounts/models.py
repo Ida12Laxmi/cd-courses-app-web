@@ -260,6 +260,7 @@ class Notification(models.Model):
     RECIPIENT_CHOICES = [
         ('teacher', 'Teacher'),
         ('student', 'Student'),
+        ('admin','Admin'),
     ]
     NOTIFICATION_TYPES = [
         ('assignment_submitted', 'Assignment Submitted'),
@@ -271,9 +272,13 @@ class Notification(models.Model):
         ('leave_delay','Leave/Delay Request'),
         ('message','Message'),
         ('attendance_marked', 'Attendance Marked'),
+        ('student_registered', 'Student Registered'),
+        ('certificate_uploaded', 'Certificate Uploaded'),
+        ('timetable_uploaded', 'Timetable Uploaded'),
+        ('announcement_published', 'Announcement Published'),
     ]
     nid = models.AutoField(primary_key=True)
-    teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='notifications')
+    teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
     student = models.ForeignKey('Student', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
     recipient = models.CharField(max_length=10, choices=RECIPIENT_CHOICES, default='teacher')
     notif_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
@@ -302,3 +307,19 @@ class DeviceToken(models.Model):
 
     class Meta:
         db_table = 'device_token'
+
+class AdminSide(models.Model):
+    aid=models.AutoField(primary_key=True, db_column='aid')
+    fullname = models.CharField(max_length=100, db_column='fullname', default='')
+    email = models.EmailField(max_length=254, db_column='email', default='', unique=True)
+    phone = models.CharField(max_length=20, db_column='phone', default='')
+    address = models.CharField(max_length=255, db_column='address', default='')
+    gender = models.CharField(max_length=10, db_column='gender', default='')
+    password = models.CharField(max_length=255, db_column='password', default='')
+
+    class Meta:
+        db_table='admin_side'
+
+    def _str_(self):
+        return self.fullname
+
