@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'teacher_submission_search_screen.dart';
+import "config/api_config.dart";
 
 class StudentProjectsScreen extends StatefulWidget {
   final int studentId;
@@ -14,7 +15,7 @@ class StudentProjectsScreen extends StatefulWidget {
 }
 
 class _StudentProjectsScreenState extends State<StudentProjectsScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.mediaBaseUrl;
 
   List<dynamic> _submissions = [];
   bool _isLoading = true;

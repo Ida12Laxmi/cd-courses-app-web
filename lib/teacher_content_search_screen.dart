@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+import "config/api_config.dart";
 
 class TeacherContentSearchScreen extends StatefulWidget {
   final int teacherId;
@@ -21,7 +23,7 @@ class TeacherContentSearchScreen extends StatefulWidget {
 }
 
 class _TeacherContentSearchScreenState extends State<TeacherContentSearchScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   final TextEditingController _controller = TextEditingController();
   Timer? _debounce;
@@ -84,6 +86,41 @@ class _TeacherContentSearchScreenState extends State<TeacherContentSearchScreen>
         _error = 'Search failed: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  // Opens the item's video link or file — same logic as ContentListScreen._openItem.
+  Future<void> _openItem(dynamic item) async {
+    String? urlToOpen;
+
+    final videoLink = item['video_link'];
+    final file = item['file'];
+
+    if (videoLink != null && videoLink.toString().isNotEmpty) {
+      urlToOpen = videoLink.toString();
+    } else if (file != null && file.toString().isNotEmpty) {
+      final fileStr = file.toString();
+      urlToOpen = fileStr.startsWith('http')
+          ? fileStr
+          : '${ApiConfig.mediaBaseUrl}$fileStr';
+    }
+
+    if (urlToOpen == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No file or link available')),
+      );
+      return;
+    }
+
+    final uri = Uri.parse(urlToOpen);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open: $urlToOpen')),
+        );
+      }
     }
   }
 
@@ -154,10 +191,7 @@ class _TeacherContentSearchScreenState extends State<TeacherContentSearchScreen>
             item['level'] != null ? '${_labelFor(type)} · Level: ${item['level']}' : _labelFor(type),
           ),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            // Wire this to whatever detail/viewer flow your teacher-side
-            // content list already uses (e.g. same viewer ContentListScreen opens on tap).
-          },
+          onTap: () => _openItem(item),
         );
       },
     );

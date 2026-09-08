@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import "config/api_config.dart";
 
 class BillReceiptScreen extends StatelessWidget {
   final dynamic bill;
@@ -10,7 +11,7 @@ class BillReceiptScreen extends StatelessWidget {
     required this.studentName,
   });
 
-  static const String _mediaBaseUrl = 'http://192.168.0.196:8000';
+  static const String _mediaBaseUrl = ApiConfig.mediaBaseUrl;
 
   void _viewScreenshotFullScreen(BuildContext context, String screenshotPath) {
     showDialog(

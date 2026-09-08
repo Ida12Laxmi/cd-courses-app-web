@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'students_bill_screen.dart';
 import 'upload_qr_screen.dart';
+import "config/api_config.dart";
 
 class TeacherBillingOverviewScreen extends StatefulWidget {
   final int teacherId;
@@ -13,7 +14,7 @@ class TeacherBillingOverviewScreen extends StatefulWidget {
 }
 
 class _TeacherBillingOverviewScreenState extends State<TeacherBillingOverviewScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   List<dynamic> _bills = [];
   bool _isLoading = true;

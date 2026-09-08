@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'otp_verification_screen.dart';
+import "config/api_config.dart";
 
 void main() {
   runApp(const MyApp());
@@ -48,7 +49,7 @@ class _RegistrationState extends State<Registration> {
       return;
     }
 
-    var url = Uri.parse('http://192.168.0.196:8000/accounts/teachers/');
+    var url = Uri.parse('${ApiConfig.mediaBaseUrl}/accounts/teachers/');
 
     setState(() => _isLoading = true);
 

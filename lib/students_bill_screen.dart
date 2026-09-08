@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'add_bill_form.dart';
 import 'bill_receipt_screen.dart';
 import 'payment_proof_screen.dart';
+import "config/api_config.dart";
 
 class StudentBillsScreen extends StatefulWidget {
   final int teacherId;
@@ -24,8 +25,8 @@ class StudentBillsScreen extends StatefulWidget {
 }
 
 class _StudentBillsScreenState extends State<StudentBillsScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
-  static const String _mediaBaseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.baseUrl;
+  static const String _mediaBaseUrl = ApiConfig.mediaBaseUrl;
 
   List<dynamic> _bills = [];
   bool _isLoading = true;

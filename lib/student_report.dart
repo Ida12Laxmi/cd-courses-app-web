@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
+import "config/api_config.dart";
 
 class StudentAttendanceReportScreen extends StatefulWidget {
   final int studentId;
@@ -13,7 +14,7 @@ class StudentAttendanceReportScreen extends StatefulWidget {
 }
 
 class _StudentAttendanceReportScreenState extends State<StudentAttendanceReportScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   List<dynamic> _records = [];
   bool _isLoading = true;

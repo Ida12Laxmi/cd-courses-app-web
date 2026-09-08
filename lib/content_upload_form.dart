@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import "config/api_config.dart";
 
 class ContentUploadForm extends StatefulWidget {
   final int teacherId;
@@ -23,7 +24,7 @@ class ContentUploadForm extends StatefulWidget {
 }
 
 class _ContentUploadFormState extends State<ContentUploadForm> {
-  static const String _baseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.mediaBaseUrl;
 
   // Keep in sync with Student.LEVEL_CHOICES on the backend.
   static const List<String> _levels = ['Basic', 'Intermediate', 'Advance'];

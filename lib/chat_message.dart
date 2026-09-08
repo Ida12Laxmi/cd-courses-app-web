@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import "config/api_config.dart";
 
 class ChatMessage {
   final int messageId;
@@ -67,9 +68,9 @@ class _ChatScreenState extends State<ChatScreen> {
   File? _pickedFile;
 
   // API calls live under /accounts/
-  static const String _apiBaseUrl = "http://192.168.0.196:8000/accounts";
+  static const String _apiBaseUrl = ApiConfig.baseUrl;
   // Uploaded files (media) are served from the server root
-  static const String _mediaBaseUrl = "http://192.168.0.196:8000";
+  static const String _mediaBaseUrl = ApiConfig.mediaBaseUrl;
 
   @override
   void initState() {

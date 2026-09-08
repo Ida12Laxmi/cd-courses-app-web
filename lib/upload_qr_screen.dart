@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import "config/api_config.dart";
 
 class UploadQrScreen extends StatefulWidget {
   final int teacherId;
@@ -13,8 +14,8 @@ class UploadQrScreen extends StatefulWidget {
 }
 
 class _UploadQrScreenState extends State<UploadQrScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
-  static const String _mediaBaseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.baseUrl;
+  static const String _mediaBaseUrl = ApiConfig.mediaBaseUrl;
 
   File? _qrFile;
   String? _existingQrUrl;

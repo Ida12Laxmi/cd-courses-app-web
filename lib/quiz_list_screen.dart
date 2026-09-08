@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'create_quiz_screen.dart';
 import 'quiz_questions_screen.dart';
 import 'quiz_result_screen.dart';
+import "config/api_config.dart";
 
 class QuizListScreen extends StatefulWidget {
   final int teacherId;
@@ -14,7 +15,7 @@ class QuizListScreen extends StatefulWidget {
 }
 
 class _QuizListScreenState extends State<QuizListScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.mediaBaseUrl;
 
   List<dynamic> _quizzes = [];
   bool _isLoading = true;

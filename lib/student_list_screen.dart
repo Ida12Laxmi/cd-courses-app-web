@@ -7,6 +7,7 @@ import 'chat_message.dart';
 import 'student_report.dart';
 import 'attendance_history_screen.dart';
 import 'students_bill_screen.dart';
+import "config/api_config.dart";
 
 class StudentListScreen extends StatefulWidget {
   final int teacherId;
@@ -35,7 +36,7 @@ class StudentListScreen extends StatefulWidget {
 }
 
 class _StudentListScreenState extends State<StudentListScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.mediaBaseUrl;
 
   List<dynamic> _students = [];
   bool _isLoading = true;

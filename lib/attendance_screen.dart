@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'student_list_screen.dart';
+import "config/api_config.dart";
 
 class AttendanceScreen extends StatefulWidget {
   final int teacherId;
@@ -13,7 +14,7 @@ class AttendanceScreen extends StatefulWidget {
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   late DateTime _selectedDate;
   List<dynamic> _students = [];

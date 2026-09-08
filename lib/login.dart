@@ -5,6 +5,7 @@ import 'teacherdashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'teacher_forgot_screen.dart';
 import 'otp_verification_screen.dart';
+import "config/api_config.dart";
 void main() {
   runApp(const MyApp());
 }
@@ -37,7 +38,7 @@ class _LoginState extends State<Login>{
   bool _isLoading = false;
   
      Future<void> loginUser() async {
-    var url = Uri.parse('http://192.168.0.196:8000/accounts/login/');
+    var url = Uri.parse('${ApiConfig.baseUrl}/login/');
 
     setState(() => _isLoading = true);
 
@@ -65,7 +66,7 @@ class _LoginState extends State<Login>{
         if(fcmToken != null) {
            try {
       await http.post(
-        Uri.parse('http://192.168.0.196:8000/accounts/devices/register-token/'),
+        Uri.parse('${ApiConfig.baseUrl}/devices/register-token/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'role': 'teacher', 'user_id': teacherId, 'token': fcmToken}),
       );

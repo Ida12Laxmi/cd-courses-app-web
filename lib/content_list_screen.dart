@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'content_upload_form.dart';
 import 'package:url_launcher/url_launcher.dart';
+import "config/api_config.dart";
 
 class ContentListScreen extends StatefulWidget {
   final int teacherId;
@@ -27,7 +28,7 @@ class ContentListScreen extends StatefulWidget {
 }
 
 class _ContentListScreenState extends State<ContentListScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.mediaBaseUrl;
 
   List<dynamic> _items = [];
   bool _isLoading = true;

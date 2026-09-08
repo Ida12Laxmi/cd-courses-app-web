@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'add_question_form.dart';
+import "config/api_config.dart";
 
 class QuizQuestionsScreen extends StatefulWidget {
   final int quizId;
@@ -13,7 +14,7 @@ class QuizQuestionsScreen extends StatefulWidget {
 }
 
 class _QuizQuestionsScreenState extends State<QuizQuestionsScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.mediaBaseUrl;
 
   Map<String, dynamic>? _quiz;
   bool _isLoading = true;
