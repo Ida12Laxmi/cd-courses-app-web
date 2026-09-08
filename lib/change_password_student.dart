@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import "config/api_config.dart";
 
 class ChangePasswordScreen extends StatefulWidget {
   final int studentId;
@@ -11,7 +12,7 @@ class ChangePasswordScreen extends StatefulWidget {
 }
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
+  static const String _baseUrl = ApiConfig.baseUrl;
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _oldPasswordController = TextEditingController();

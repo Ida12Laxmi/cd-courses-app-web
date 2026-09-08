@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'student_quiz_take_screen.dart';
+import "config/api_config.dart";
 
 class StudentQuizListScreen extends StatefulWidget {
   final int studentId;
@@ -19,7 +20,7 @@ class StudentQuizListScreen extends StatefulWidget {
 }
 
 class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000';
+  static const String _baseUrl = ApiConfig.mediaBaseUrl;
 
   List<dynamic> _quizzes = [];
   // quiz['quid'] -> this student's result map (score/total_questions), if attempted

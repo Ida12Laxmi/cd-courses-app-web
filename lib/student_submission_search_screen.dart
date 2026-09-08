@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class StudentSubmissionSearchScreen extends StatefulWidget {
   final int studentId;
@@ -73,6 +74,28 @@ class _StudentSubmissionSearchScreenState extends State<StudentSubmissionSearchS
     }
   }
 
+  Future<void> _openFile(dynamic item) async {
+  final rawUrl = item['file'] ?? item['file_url'];
+  if (rawUrl == null || rawUrl.toString().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No file attached.')),
+    );
+    return;
+  }
+
+  final path = rawUrl.toString();
+  final fullUrl = path.startsWith('http') ? path : '${ApiService.mediaOrigin}$path';
+
+  final uri = Uri.tryParse(fullUrl);
+  if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open file: $fullUrl')),
+      );
+    }
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -126,16 +149,8 @@ class _StudentSubmissionSearchScreenState extends State<StudentSubmissionSearchS
                 child: ListTile(
                   title: Text(item['title'] ?? ''),
                   subtitle: Text(item['description'] ?? ''),
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: Text(item['title'] ?? ''),
-                      content: Text(item['description'] ?? 'No details.'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-                      ],
-                    ),
-                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openFile(item),
                 ),
               )),
           const SizedBox(height: 20),
@@ -152,6 +167,8 @@ class _StudentSubmissionSearchScreenState extends State<StudentSubmissionSearchS
                     ? 'Feedback: $feedback'
                     : 'Awaiting review',
               ),
+               trailing: const Icon(Icons.chevron_right),
+               onTap: () => _openFile(s),
             );
           }),
         ],

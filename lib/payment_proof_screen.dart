@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import "config/api_config.dart";
 
 /// Student-side "Pay Bill" flow:
 ///   Step 1 — shows the teacher's payment QR code (eSewa/Khalti/mobile
@@ -29,8 +30,8 @@ class PaymentProofScreen extends StatefulWidget {
 }
 
 class _PaymentProofScreenState extends State<PaymentProofScreen> {
-  static const String _apiBaseUrl = 'http://192.168.0.196:8000/accounts';
-  static const String _mediaBaseUrl = 'http://192.168.0.196:8000';
+  static const String _apiBaseUrl = ApiConfig.baseUrl;
+  static const String _mediaBaseUrl = ApiConfig.mediaBaseUrl;
 
   final _transactionController = TextEditingController();
   String _paymentMethod = 'esewa';

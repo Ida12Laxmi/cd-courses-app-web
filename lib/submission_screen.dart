@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'services/api_service.dart';
 import 'student_submission_search_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
+//import 'package:url_launcher/url_launcher.dart';
+import 'secure_content_viewer_screen.dart';
 
 class SubmissionScreen extends StatefulWidget {
   final int studentId;
@@ -265,15 +266,20 @@ Future<void> _openFile(dynamic submission) async {
 
   final path = rawUrl.toString();
   final fullUrl = path.startsWith('http') ? path : '${ApiService.mediaOrigin}$path';
+  final fileName = path.split('/').last;
+  final title = (submission['title'] ?? fileName).toString();
 
-  final uri = Uri.tryParse(fullUrl);
-  if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open file: $fullUrl')),
-      );
-    }
-  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SecureContentViewerScreen.forAttachment(
+        url: fullUrl,
+        fileName: fileName,
+        title: title,
+      ),
+      fullscreenDialog: true,
+    ),
+  );
 }
 /*Future<void> _openFile(dynamic submission) async {
   final rawUrl = submission['file'] ?? submission['file_url'];
@@ -319,6 +325,7 @@ Future<void> _openFile(dynamic submission) async {
           studentId: widget.studentId,
           contentType: widget.contentType,
           title: widget.title,
+          
         ),
       )),
         ),
@@ -342,6 +349,8 @@ Future<void> _openFile(dynamic submission) async {
                   child: ListTile(
                     title: Text(q['title'] ?? ''),
                     subtitle: Text(q['description'] ?? ''),
+                     trailing: const Icon(Icons.chevron_right),
+      onTap: () => _openFile(q),
                   ),
                 )).toList(),
               );

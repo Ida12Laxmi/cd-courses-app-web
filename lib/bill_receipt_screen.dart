@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import "config/api_config.dart";
 
 /// Read-only receipt for a bill that's already marked 'paid'. Shown when
 /// tapping a paid bill in StudentBillsScreen, for either role.
@@ -8,7 +9,7 @@ class BillReceiptScreen extends StatelessWidget {
 
   const BillReceiptScreen({super.key, required this.bill, required this.studentName});
 
-  static const String _mediaBaseUrl = 'http://192.168.0.196:8000';
+  static const String _mediaBaseUrl = ApiConfig.mediaBaseUrl;
 
   @override
   Widget build(BuildContext context) {

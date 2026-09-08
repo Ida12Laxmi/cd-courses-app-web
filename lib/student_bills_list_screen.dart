@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'bill_receipt_screen.dart';
 import 'payment_proof_screen.dart';
+import "config/api_config.dart";
 
 class StudentBillsListScreen extends StatefulWidget {
   final int teacherId;
@@ -21,7 +22,7 @@ class StudentBillsListScreen extends StatefulWidget {
 }
 
 class _StudentBillsListScreenState extends State<StudentBillsListScreen> {
-  static const String _baseUrl = 'http://192.168.0.196:8000/accounts';
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   List<dynamic> _bills = [];
   bool _isLoading = true;
