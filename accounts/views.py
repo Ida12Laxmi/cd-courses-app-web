@@ -14,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from dotenv import load_dotenv
 from .serializers import StudentSerializer, TeacherSerializer, ContentSerializer, QuizSerializer, QuestionSerializer, QuizPublicSerializer, QuizResultSerializer, AssignmentSubmissionSerializer, ProjectSubmissionSerializer, ConversationSerializer,MessageSerializer,ReactionSerializer, AttendanceSerializer, BillSerializer,TeacherPaymentQrSerializer,BillWithStudentSerializer,NotificationSerializer,AdminSideSerializer
 from .models import DeviceToken, Student, Teacher,CourseContent, Quiz, Question, QuizResult, StudentAnswer, AssignmentSubmission, ProjectSubmission, Conversation, Message, MessageReaction, Attendance, Bill, TeacherPaymentQr, Notification,DeviceToken,AdminSide
-from .firebase_utils import send_push_to_user, notify_student
+from .firebase_utils import send_push_to_user, notify_student, notify_teacher
 from django.conf import settings
 from django.core.files.storage import default_storage
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -675,9 +675,9 @@ def get_or_create_conversation(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def send_message(request):
-    conv_id=request.data.get('convid')
-    sender_type=request.data.get('sender_type')
-    text=request.data.get('text','')
+    conv_id = request.data.get('convid')
+    sender_type = request.data.get('sender_type')
+    text = request.data.get('text', '')
     attachment = request.FILES.get('attachment', None)
     message = Message.objects.create(
         conversation_id=conv_id,
@@ -686,21 +686,42 @@ def send_message(request):
         attachment=attachment
     )
 
-    if sender_type == 'teacher':
-        try:
-            conversation = Conversation.objects.get(convid=conv_id)
-            student = Student.objects.get(sid=conversation.student_id)
-            notify_student(
-                student=student,
-                notify_type='new_message',
-                title='New Message from Teacher',
-                message=f'You have a new message from your teacher.',
-                related_id=message.message_id
-            )
-        except (Conversation.DoesNotExist, Student.DoesNotExist):
-            pass  # Handle the case where the conversation or student doesn't exist
+    try:
+        conversation = Conversation.objects.get(convid=conv_id)
+    except Conversation.DoesNotExist:
+        conversation = None
+
+    if conversation:
+        if sender_type == 'teacher':
+            try:
+                student = Student.objects.get(sid=conversation.student_id)
+                notify_student(
+                    student=student,
+                    notify_type='new_message',
+                    title='New Message from Teacher',
+                    message='You have a new message from your teacher.',
+                    related_id=message.message_id
+                )
+            except Student.DoesNotExist:
+                pass
+
+        elif sender_type == 'student':
+            try:
+                teacher = Teacher.objects.get(tid=conversation.teacher_id)
+                student = Student.objects.get(sid=conversation.student_id)
+                student_name = getattr(student, 'name', None) or 'A student'
+                notify_teacher(
+                    teacher=teacher,
+                    notify_type='new_message',
+                    title='New Message from Student',
+                    message=f'{student_name} sent you a new message.',
+                    related_id=message.message_id
+                )
+            except (Teacher.DoesNotExist, Student.DoesNotExist):
+                pass
 
     return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

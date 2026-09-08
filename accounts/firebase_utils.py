@@ -40,3 +40,16 @@ def notify_student(student, notify_type, title, message, related_id=None):
         related_id=related_id,
     )
     send_push_to_user(role='student', user_id=student.sid, title=title, body=message)
+
+def notify_teacher(teacher, notify_type, title, message, related_id=None):
+    from accounts.models import Notification
+    Notification.objects.create(
+        teacher_id=teacher.tid,
+        student_id=None,
+        recipient='teacher',
+        notif_type=notify_type,
+        title=title,
+        message=message,
+        related_id=related_id,
+    )
+    send_push_to_user(role='teacher', user_id=teacher.tid, title=title, body=message)
