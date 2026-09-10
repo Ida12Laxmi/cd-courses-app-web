@@ -171,7 +171,7 @@ class _AddBillFormState extends State<AddBillForm> {
                 readOnly: true,
                 onTap: _selectDueDate,
                 decoration: const InputDecoration(
-                  labelText: 'Due Date (Optional)',
+                  labelText: 'Due Date',
                   border: OutlineInputBorder(),
                   suffixIcon: Icon(Icons.calendar_today),
                 ),
@@ -181,7 +181,7 @@ class _AddBillFormState extends State<AddBillForm> {
                 controller: _remarksController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Remarks / Notes (Optional)',
+                  labelText: 'Remarks / Notes',
                   border: OutlineInputBorder(),
                 ),
               ),

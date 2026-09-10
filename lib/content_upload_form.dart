@@ -76,7 +76,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     FileType type = widget.contentType == 'video' ? FileType.video : FileType.custom;
     final result = await FilePicker.platform.pickFiles(
       type: type,
-      allowedExtensions: type == FileType.custom ? ['pdf', 'ppt', 'pptx'] : null,
+      allowedExtensions: type == FileType.custom ? ['pdf'] : null,
     );
     if (result != null && result.files.single.path != null) {
       setState(() {
@@ -186,7 +186,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
             TextField(
               controller: descriptionController,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 20),
             if (isVideo)
