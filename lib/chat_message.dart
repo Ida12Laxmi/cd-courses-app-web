@@ -457,14 +457,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     _deleteMessage(message);
                   },
                 ),
-              ListTile(
-                leading: const Icon(Icons.more_horiz),
-                title: const Text('More'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showMoreOptions(context, message);
-                },
-              ),
+            
               const SizedBox(height: 8),
             ],
           ),
