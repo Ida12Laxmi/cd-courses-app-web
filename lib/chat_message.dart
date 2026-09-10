@@ -343,23 +343,6 @@ Future<void> _openAttachment(String attachment) async {
     }
   }
 
-  void _showMoreOptions(BuildContext context, ChatMessage message) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.push_pin_outlined),
-              title: const Text('Pin'),
-              subtitle: const Text('Coming soon'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _showMessageActions(BuildContext context, ChatMessage message) {
     final isMe = message.senderType == widget.currentUserType;
@@ -459,14 +442,7 @@ Future<void> _openAttachment(String attachment) async {
                     _deleteMessage(message);
                   },
                 ),
-              ListTile(
-                leading: const Icon(Icons.more_horiz),
-                title: const Text('More'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showMoreOptions(context, message);
-                },
-              ),
+           
               const SizedBox(height: 8),
             ],
           ),
