@@ -945,6 +945,18 @@ def mark_cash_paid(request, bill_id):
     bill.payment_method = 'cash'
     bill.paid_date = timezone.now().date()
     bill.save()
+
+    try:
+        student = Student.objects.get(sid=bill.student_id)
+        notify_student(
+            student=student,
+            notify_type='payment_verified',
+            title='Payment Recorded',
+            message=f'Your teacher marked "{bill.title}" as paid (cash).',
+            related_id=bill.bid,
+        )
+    except Student.DoesNotExist:
+        pass
     return Response(BillSerializer(bill).data)
 
 
@@ -962,6 +974,20 @@ def submit_payment_proof(request, bill_id):
         bill.payment_screenshot = request.FILES['payment_screenshot']
     bill.status = 'pending'  # awaiting teacher verification
     bill.save()
+
+    try:
+        teacher = Teacher.objects.get(tid=bill.teacher_id)
+        student = Student.objects.get(sid=bill.student_id)
+        student_name = getattr(student, 'name', None) or 'A student'
+        notify_teacher(
+            teacher=teacher,
+            notify_type='payment_submitted',
+            title='Payment Proof Submitted',
+            message=f'{student_name} submitted payment proof for {bill.title}.',
+            related_id=bill.bid,
+        )
+    except (Teacher.DoesNotExist, Student.DoesNotExist):
+        pass
     return Response(BillSerializer(bill).data)
 
 
@@ -982,6 +1008,27 @@ def verify_payment(request, bill_id):
     if new_status == 'paid':
         bill.paid_date = timezone.now().date()
     bill.save()
+
+    try:
+        student = Student.objects.get(sid=bill.student_id)
+        if new_status == 'paid':
+            notify_student(
+                student=student,
+                notify_type='payment_verified',
+                title='Payment Verified',
+                message=f'Your payment for "{bill.title}" has been confirmed.',
+                related_id=bill.bid,
+            )
+        else:
+            notify_student(
+                student=student,
+                notify_type='payment_rejected',
+                title='Payment Rejected',
+                message=f'Your payment proof for "{bill.title}" was rejected. Please resubmit.',
+                related_id=bill.bid,
+            )
+    except Student.DoesNotExist:
+        pass
     return Response(BillSerializer(bill).data)
 
 
@@ -992,6 +1039,8 @@ def delete_bill(request, bill_id):
     except Bill.DoesNotExist:
         return Response({'error': 'Bill not found'}, status=404)
     bill.delete()
+
+    
     return Response(status=204)
 
 
