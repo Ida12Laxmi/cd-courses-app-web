@@ -1,13 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'package:gal/gal.dart';
 import "config/api_config.dart";
 
 /// Student-side "Pay Bill" flow:
 ///   Step 1 — shows the teacher's payment QR code (eSewa/Khalti/mobile
-///     banking — whatever they've uploaded via UploadQrScreen).
+///     banking — whatever they've uploaded via UploadQrScreen), with an
+///     option to download it to the device gallery.
 ///   Step 2 — student enters which method they paid with, a transaction
 ///     ID, and optionally attaches a screenshot, then submits for the
 ///     teacher to verify. Bill status moves to 'pending' server-side.
@@ -40,6 +43,8 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
   String? _qrUrl;
   bool _loadingQr = true;
   String? _qrError;
+
+  bool _downloadingQr = false;
 
   bool _submitting = false;
   bool _submitted = false;
@@ -85,6 +90,43 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() => _screenshot = File(result.files.single.path!));
+    }
+  }
+
+  Future<void> _downloadQr() async {
+    if (_qrUrl == null) return;
+    setState(() => _downloadingQr = true);
+    try {
+      final res = await http.get(Uri.parse(_qrUrl!));
+      if (res.statusCode != 200) {
+        throw Exception('Server returned ${res.statusCode}');
+      }
+      final Uint8List bytes = res.bodyBytes;
+      await Gal.putImageBytes(
+        bytes,
+        name: 'payment_qr_${widget.teacherId}_${DateTime.now().millisecondsSinceEpoch}',
+        album: 'Payment QR Codes',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QR code saved to your gallery.')),
+        );
+      }
+    } on GalException catch (e) {
+      if (mounted) {
+        final msg = e.type == GalExceptionType.accessDenied
+            ? 'Permission denied. Enable photo/storage access in app settings to save the QR.'
+            : 'Could not save QR: ${e.type}';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save QR: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingQr = false);
     }
   }
 
@@ -213,14 +255,29 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
                         padding: const EdgeInsets.all(20),
                         child: Text(_qrError!, textAlign: TextAlign.center),
                       )
-                    : Image.network(
-                        _qrUrl!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) =>
-                            const Padding(
+                    : Column(
+                        children: [
+                          Image.network(
+                            _qrUrl!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Padding(
                               padding: EdgeInsets.all(20),
                               child: Text('Could not load QR image.'),
                             ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextButton.icon(
+                            onPressed: _downloadingQr ? null : _downloadQr,
+                            icon: _downloadingQr
+                                ? const SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.download),
+                            label: Text(_downloadingQr ? 'Saving...' : 'Download QR to Gallery'),
+                          ),
+                        ],
                       ),
           ),
           const SizedBox(height: 24),
@@ -270,7 +327,8 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(
-                      height: 20, width: 20,
+                      height: 20,
+                      width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('Submit for Verification', style: TextStyle(color: Colors.white)),
