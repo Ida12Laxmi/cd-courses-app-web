@@ -233,6 +233,8 @@ final uri = Uri.parse(
                   leading: const Icon(Icons.assignment_outlined),
                   title: Text(g['title'] ?? ''),
                   subtitle: Text(g['description'] ?? ''),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openFile(g),
                 ),
               )),
           const SizedBox(height: 16),
