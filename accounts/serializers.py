@@ -55,9 +55,12 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
 
 class QuizResultSerializer(serializers.ModelSerializer):
     answers = StudentAnswerSerializer(many=True, read_only=True)
+    student_name = serializers.SerializerMethodField()
     class Meta:
         model=QuizResult
-        fields = ['rid', 'quiz', 'student', 'score', 'total_questions', 'submitted_at', 'answers']
+        fields = ['rid', 'quiz', 'student', 'student_name', 'score', 'total_questions', 'submitted_at', 'answers']
+    def get_student_name(self, obj):
+        return obj.student.username
 
 class AssignmentSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
