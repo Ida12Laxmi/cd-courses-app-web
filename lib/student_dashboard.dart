@@ -277,8 +277,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         studentId: widget.studentId,
         teacherId: widget.teacherId,
         studentLevel:widget.studentLevel,
+        onBack: () => _goToPage(0), 
       ),
-      ChangePasswordScreen(studentId: widget.studentId),
+      ChangePasswordScreen(studentId: widget.studentId, onBack: () => _goToPage(0),),
     ];
 
     return PopScope(

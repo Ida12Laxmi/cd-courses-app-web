@@ -5,7 +5,8 @@ import "config/api_config.dart";
 
 class ChangePasswordScreen extends StatefulWidget {
   final int studentId;
-  const ChangePasswordScreen({super.key, required this.studentId});
+  final VoidCallback? onBack;
+  const ChangePasswordScreen({super.key, required this.studentId, this.onBack});
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
@@ -85,6 +86,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         backgroundColor: const Color(0xFF013768),
         title: const Text('Change Password', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
+         leading: widget.onBack != null
+      ? IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onBack,
+        )
+      : null,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

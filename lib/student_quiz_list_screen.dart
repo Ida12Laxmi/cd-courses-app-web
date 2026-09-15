@@ -8,11 +8,13 @@ class StudentQuizListScreen extends StatefulWidget {
   final int studentId;
   final int teacherId;
   final String studentLevel; // 'Basic' | 'Intermediate' | 'Advance'
+  final VoidCallback? onBack;
   const StudentQuizListScreen({
     super.key,
     required this.studentId,
     required this.teacherId,
     required this.studentLevel,
+    this.onBack,
   });
 
   @override
@@ -129,6 +131,12 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
         title: const Text('Quizzes'),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
+        leading: widget.onBack != null
+      ? IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onBack,
+        )
+      : null,
       ),
       body: RefreshIndicator(onRefresh: _fetchQuizzes, child: _buildBody()),
     );
