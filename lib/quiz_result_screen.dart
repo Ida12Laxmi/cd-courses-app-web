@@ -101,7 +101,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
             // NOTE: shows the student's numeric id. If you want the name
             // shown instead, add a nested StudentSerializer to
             // QuizResultSerializer on the backend (student field).
-            title: Text('Student ID: ${result['student']}'),
+            title:  Text(result['student_name'] ?? 'Student ID: ${result['student']}'),
             subtitle: Text('Submitted: ${result['submitted_at'] ?? ''}'),
             trailing: Text(
               '$score / $total',
