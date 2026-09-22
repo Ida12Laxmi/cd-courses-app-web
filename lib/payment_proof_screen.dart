@@ -260,7 +260,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
                           Image.network(
                             _qrUrl!,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Padding(
+                            errorBuilder: (_, _, _) => const Padding(
                               padding: EdgeInsets.all(20),
                               child: Text('Could not load QR image.'),
                             ),

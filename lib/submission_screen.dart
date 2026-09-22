@@ -43,15 +43,18 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     });
   }
 
-  Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles();
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        _pickedFilePath = result.files.single.path;
-        _pickedFileName = result.files.single.name;
-      });
-    }
+ Future<void> _pickFile() async {
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['pdf'],
+  );
+  if (result != null && result.files.single.path != null) {
+    setState(() {
+      _pickedFilePath = result.files.single.path;
+      _pickedFileName = result.files.single.name;
+    });
   }
+}
 
   Future<void> _submit() async {
     if (_titleController.text.trim().isEmpty || _pickedFilePath == null) {
@@ -128,7 +131,10 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
                   children: [
                     OutlinedButton.icon(
                       onPressed: () async {
-                        final result = await FilePicker.platform.pickFiles();
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['pdf'],
+                        );
                         if (result != null && result.files.single.path != null) {
                           setDialogState(() {
                             newFilePath = result.files.single.path;
