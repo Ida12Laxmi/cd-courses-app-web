@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class ContentUploadForm extends StatefulWidget {
   final int teacherId;
@@ -162,7 +163,25 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     final bool isVideo = widget.contentType == 'video';
 
     return Scaffold(
-      appBar: AppBar(title: Text('${_isEditing ? 'Edit' : 'Add'} ${widget.title}'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+       
+        //title: Text('${_isEditing ? 'Edit' : 'Add'} ${widget.title}'),
+        title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(
+      child: Text(
+        '${_isEditing ? 'Edit' : 'Add'} ${widget.title}',
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'students_bill_screen.dart';
 import 'upload_qr_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class TeacherBillingOverviewScreen extends StatefulWidget {
   final int teacherId;
@@ -84,9 +85,18 @@ class _TeacherBillingOverviewScreenState extends State<TeacherBillingOverviewScr
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+       
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        title: const Text('Billing Overview'),
+        //title: const Text('Billing Overview'),
+         title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Billing Overview', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code),

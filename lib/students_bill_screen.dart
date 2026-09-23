@@ -5,6 +5,7 @@ import 'add_bill_form.dart';
 import 'bill_receipt_screen.dart';
 import 'payment_proof_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentBillsScreen extends StatefulWidget {
   final int teacherId;
@@ -312,8 +313,23 @@ class _StudentBillsScreenState extends State<StudentBillsScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
-        title: Text('${widget.studentName} — Bills', style: const TextStyle(color: Colors.white)),
+       
+       // title: Text('${widget.studentName} — Bills', style: const TextStyle(color: Colors.white)),
+       title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(
+      child: Text(
+        '${widget.studentName} — Bills',
+        style: const TextStyle(color: Colors.white),
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),
         iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
       ),
       body: RefreshIndicator(onRefresh: _fetchBills, child: _buildBody()),
       floatingActionButton: _isTeacher

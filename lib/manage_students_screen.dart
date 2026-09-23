@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'student_register.dart';
 import 'student_list_screen.dart';
+import 'app_logo.dart';
 
 
 class ManageStudentsScreen extends StatelessWidget {
@@ -18,7 +19,14 @@ class ManageStudentsScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
        backgroundColor: const Color(0xFF013768),
-        title: const Text('Manage Students', style: TextStyle(color: Colors.white)),
+       automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Manage Students', style: TextStyle(color: Colors.white)),
+          ],
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(

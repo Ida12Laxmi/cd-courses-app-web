@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'student_assignments_screen.dart';
 import 'student_project_screen.dart';
 import 'chat_message.dart';
+import 'app_logo.dart';
 
 class StudentDetailScreen extends StatelessWidget {
   final int studentId;
@@ -21,9 +22,24 @@ class StudentDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        
         backgroundColor: const Color(0xFF013768),
-        title: Text(studentName, style: const TextStyle(color: Colors.white)),
+       // title: Text(studentName, style: const TextStyle(color: Colors.white)),
+       title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(
+      child: Text(
+        studentName,
+        style: const TextStyle(color: Colors.white),
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),
         iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

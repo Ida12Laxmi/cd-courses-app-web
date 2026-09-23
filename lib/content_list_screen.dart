@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'content_upload_form.dart';
 import 'package:url_launcher/url_launcher.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class ContentListScreen extends StatefulWidget {
   final int teacherId;
@@ -190,7 +191,19 @@ class _ContentListScreenState extends State<ContentListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+       
+title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(child: Text(widget.title, overflow: TextOverflow.ellipsis)),
+  ],
+),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+      ),
       body: RefreshIndicator(
         onRefresh: _fetchContent,
         child: _buildBody(),

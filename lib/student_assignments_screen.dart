@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'teacher_submission_search_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentAssignmentsScreen extends StatefulWidget {
   final int studentId;
@@ -143,7 +144,18 @@ class _StudentAssignmentsScreenState extends State<StudentAssignmentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.studentName} — Assignments'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,
+      appBar: AppBar(  title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(
+      child: Text(
+        '${widget.studentName} — Assignments',
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,automaticallyImplyLeading: false,
       actions: [
         IconButton(icon: const Icon(Icons.search),
         tooltip: 'Search',

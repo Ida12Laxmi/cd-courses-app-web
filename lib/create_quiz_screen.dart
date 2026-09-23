@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'quiz_questions_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class CreateQuizScreen extends StatefulWidget {
   final int teacherId;
@@ -147,7 +148,25 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? 'Edit Quiz' : 'Create Quiz'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+      
+       // title: Text(_isEditing ? 'Edit Quiz' : 'Create Quiz'),
+       title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(
+      child: Text(
+        _isEditing ? 'Edit Quiz' : 'Create Quiz',
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(

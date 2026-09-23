@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class ChatMessage {
   final int messageId;
@@ -341,7 +342,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _showMoreOptions(BuildContext context, ChatMessage message) {
+  /*void _showMoreOptions(BuildContext context, ChatMessage message) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -357,7 +358,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
-  }
+  }*/
 
   void _showMessageActions(BuildContext context, ChatMessage message) {
     final isMe = message.senderType == widget.currentUserType;
@@ -470,10 +471,19 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.topicTitle),
+        
+       // title: Text(widget.topicTitle),
+    title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(child: Text(widget.topicTitle, overflow: TextOverflow.ellipsis)),
+  ],
+),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         elevation: 1,
+        automaticallyImplyLeading: false,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

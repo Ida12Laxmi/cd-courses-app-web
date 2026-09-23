@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class BillReceiptScreen extends StatelessWidget {
   final dynamic bill;
@@ -32,9 +33,17 @@ class BillReceiptScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
-        title: const Text('Payment Receipt'),
+      
+         title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Payment Receipt', style: TextStyle(color: Colors.white)),
+          ],
+        ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: SingleChildScrollView(

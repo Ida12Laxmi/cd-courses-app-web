@@ -11,6 +11,7 @@ import 'change_password_screen.dart';
 import 'upload_qr_screen.dart';
 import 'notifications_screen.dart';
 import 'teacher_content_search_screen.dart';
+import 'app_logo.dart';
 
 class Teacherdashboard extends StatefulWidget {
   final int teacherId;
@@ -31,8 +32,9 @@ class Teacherdashboard extends StatefulWidget {
 }
 
 class _TeacherdashboardState extends State<Teacherdashboard> {
+  
   late final PageController _pageController;
-  int _currentPage = 0;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -46,7 +48,7 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
     super.dispose();
   }
 
-  void _goToPage(int index) {
+  void _goToTab(int index) {
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -111,50 +113,40 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
     }
   }
 
-  Widget _buildHomePage(BuildContext context) {
+  Widget _buildHomeTab(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
         iconTheme: const IconThemeData(color: Colors.white),
         automaticallyImplyLeading: false,
+          title: Row(
+    children: [
+      const AppLogo(radius: 18),
+      const SizedBox(width: 10),
+      if (widget.teacherName != null && widget.teacherName!.isNotEmpty)
+        Expanded(
+          child: Text(
+            'Welcome, ${widget.teacherName}',
+            style: const TextStyle(color: Colors.white, fontSize: 18),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+    ],
+  ),
+        // Only one-off actions live here now — search and logout aren't
+        // tab destinations, so they don't belong in the bottom bar.
         actions: [
           IconButton(
-            icon: const Icon(Icons.people),
-            tooltip: 'Manage Students',
-            onPressed: () => _goToPage(1),
+            icon: const Icon(Icons.search),
+            tooltip: 'Search',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TeacherContentSearchScreen(teacherId: widget.teacherId),
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.quiz),
-            tooltip: 'Manage Quizzes',
-            onPressed: () => _goToPage(2),
-          ),
-          IconButton(
-            icon: const Icon(Icons.qr_code),
-            tooltip: 'Payment QR Code',
-            onPressed: () => _goToPage(3),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            tooltip: 'Notifications',
-            onPressed: () => _goToPage(4),
-          ),
-          
-          IconButton(
-            icon: const Icon(Icons.password),
-            tooltip: 'Change Password',
-            onPressed: () => _goToPage(5),
-          ),
-          IconButton(
-  icon: const Icon(Icons.search),
-  tooltip: 'Search',
-  onPressed: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => TeacherContentSearchScreen(teacherId: widget.teacherId),
-    ),
-  ),
-),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
@@ -164,106 +156,88 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.teacherName != null && widget.teacherName!.isNotEmpty) ...[
-              Text(
-                'Welcome, ${widget.teacherName}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF212529),
-                ),
+        child: GridView.builder(
+          itemCount: contentTypes.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 1.1,
+          ),
+          itemBuilder: (context, index) {
+            final item = contentTypes[index];
+            return Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 16),
-            ],
-            Expanded(
-              child: GridView.builder(
-                itemCount: contentTypes.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.1,
-                ),
-                itemBuilder: (context, index) {
-                  final item = contentTypes[index];
-                  return Card(
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () {
-                        if (item.type == 'messages' ||
-                            item.type == 'leave and delays' ||
-                            item.type == 'student councelling') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => StudentListScreen(
-                                teacherId: widget.teacherId,
-                                chatTopic: item.label,
-                              ),
-                            ),
-                          );
-                        } else if (item.type == 'attendance') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AttendanceScreen(teacherId: widget.teacherId),
-                            ),
-                          );
-                        } else if (item.type == 'billing') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => StudentListScreen(
-                                teacherId: widget.teacherId,
-                                billingMode: true,
-                              ),
-                            ),
-                          );
-                        } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ContentListScreen(
-                                teacherId: widget.teacherId,
-                                studentId: widget.studentId ?? 0,
-                                studentName: widget.studentName ?? '',
-                                contentType: item.type,
-                                title: item.label,
-                                userRole: 'teacher',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(item.icon, size: 40, color: const Color(0xFF0B8081)),
-                          const SizedBox(height: 10),
-                          Text(
-                            item.label,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF013768),
-                            ),
-                          ),
-                        ],
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (item.type == 'messages' ||
+                      item.type == 'leave and delays' ||
+                      item.type == 'student councelling') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentListScreen(
+                          teacherId: widget.teacherId,
+                          chatTopic: item.label,
+                        ),
+                      ),
+                    );
+                  } else if (item.type == 'attendance') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AttendanceScreen(teacherId: widget.teacherId),
+                      ),
+                    );
+                  } else if (item.type == 'billing') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentListScreen(
+                          teacherId: widget.teacherId,
+                          billingMode: true,
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ContentListScreen(
+                          teacherId: widget.teacherId,
+                          studentId: widget.studentId ?? 0,
+                          studentName: widget.studentName ?? '',
+                          contentType: item.type,
+                          title: item.label,
+                          userRole: 'teacher',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(item.icon, size: 40, color: const Color(0xFF0B8081)),
+                    const SizedBox(height: 10),
+                    Text(
+                      item.label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF013768),
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -271,8 +245,8 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = <Widget>[
-      _buildHomePage(context),
+    final tabs = <Widget>[
+      _buildHomeTab(context),
       ManageStudentsScreen(teacherId: widget.teacherId),
       QuizListScreen(teacherId: widget.teacherId),
       UploadQrScreen(teacherId: widget.teacherId),
@@ -284,17 +258,38 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_currentPage != 0) {
-          // Not on Home — swipe/jump back to Home instead of exiting.
-          _goToPage(0);
+        if (_currentIndex != 0) {
+          // Not on Home — slide back to Home tab instead of exiting.
+          _goToTab(0);
         } else {
           _confirmExit(context);
         }
       },
-      child: PageView(
-        controller: _pageController,
-        onPageChanged: (index) => setState(() => _currentPage = index),
-        children: pages,
+      child: Scaffold(
+        body: PageView(
+          controller: _pageController,
+          onPageChanged: (index) => setState(() => _currentIndex = index),
+          // Leaving default ScrollPhysics (not NeverScrollableScrollPhysics)
+          // is what enables swipe-to-change-tab, on top of tap-to-slide.
+          children: tabs,
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: _goToTab,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFF013768),
+          unselectedItemColor:const Color(0xFF0B8081),
+          backgroundColor: const Color(0xFFF8F9FA),
+          showUnselectedLabels: true,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Students'),
+            BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'Quizzes'),
+            BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: 'QR Code'),
+            BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts'),
+            BottomNavigationBarItem(icon: Icon(Icons.password), label: 'Password'),
+          ],
+        ),
       ),
     );
   }

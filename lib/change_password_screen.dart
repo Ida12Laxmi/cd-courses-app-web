@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import "config/api_config.dart";
+import 'app_logo.dart';
+
 class ChangePasswordScreen extends StatefulWidget {
   final int teacherId;
   const ChangePasswordScreen({super.key, required this.teacherId});
@@ -82,8 +84,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
-        title: const Text('Change Password', style: TextStyle(color: Colors.white)),
+    
+         title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Change Password', style: TextStyle(color: Colors.white)),
+          ],
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

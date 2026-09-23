@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'student_list_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final int teacherId;
@@ -141,7 +142,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
-        title: const Text('Attendance', style: TextStyle(color: Colors.white)),
+      
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Attendance', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        automaticallyImplyLeading: false,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(

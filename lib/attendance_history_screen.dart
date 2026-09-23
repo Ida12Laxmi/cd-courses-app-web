@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'attendance_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentAttendanceHistoryScreen extends StatefulWidget {
   final int teacherId;
@@ -99,8 +100,23 @@ class _StudentAttendanceHistoryScreenState extends State<StudentAttendanceHistor
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
-        title: Text('${widget.studentName} — History', style: const TextStyle(color: Colors.white)),
+        
+       // title: Text('${widget.studentName} — History', style: const TextStyle(color: Colors.white)),
+       title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(
+      child: Text(
+        '${widget.studentName} — History',
+        style: const TextStyle(color: Colors.white),
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),
         iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
       ),
       body: RefreshIndicator(onRefresh: _fetchHistory, child: _buildBody()),
     );

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class PaymentProofScreen extends StatefulWidget {
   final int teacherId;
@@ -134,7 +135,19 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pay Bill'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+        
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Pay Bill', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

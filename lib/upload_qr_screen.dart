@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class UploadQrScreen extends StatefulWidget {
   final int teacherId;
@@ -97,9 +98,17 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Payment QR Code'),
+         title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Upload QR Code', style: TextStyle(color: Colors.white)),
+          ],
+        ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
+      
+        automaticallyImplyLeading: false,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

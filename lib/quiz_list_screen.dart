@@ -5,6 +5,7 @@ import 'create_quiz_screen.dart';
 import 'quiz_questions_screen.dart';
 import 'quiz_result_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class QuizListScreen extends StatefulWidget {
   final int teacherId;
@@ -133,7 +134,19 @@ class _QuizListScreenState extends State<QuizListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Quizzes'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+        
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('My Quizzes', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+      ),
       body: RefreshIndicator(
         onRefresh: _fetchQuizzes,
         child: _buildBody(),

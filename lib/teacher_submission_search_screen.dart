@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
-/// Teacher-side search over what was given (CourseContent of type
-/// 'assignment'/'project') and a specific student's own submissions,
-/// for one student at a time. Backed by student_search_submissions.
 class TeacherSubmissionSearchScreen extends StatefulWidget {
   final int studentId;
   final String studentName;
@@ -184,8 +182,10 @@ final uri = Uri.parse(
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
         title: TextField(
           controller: _controller,
           autofocus: true,

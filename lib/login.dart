@@ -134,15 +134,22 @@ class _LoginState extends State<Login>{
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20.0, top: 10.0),
-                      child: Image.asset(
-                        'assets/icon/cd.png',
-                        height: 160,
-                        width: 250,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+                     Padding(
+    padding: const EdgeInsets.only(
+      bottom: 10.0,
+      top: 10.0,
+    ),
+    child: Transform.scale(
+      scale: 2.25, // increase logo size
+      child: Image.asset(
+        'assets/icon/cd.png',
+        height: 160,
+        width: 220,
+        fit: BoxFit.contain,
+      ),
+    ),
+  ),
+
                     Card(
                       color:Colors.white,
                       elevation: 4,

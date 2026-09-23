@@ -8,6 +8,7 @@ import 'student_report.dart';
 import 'attendance_history_screen.dart';
 import 'students_bill_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentListScreen extends StatefulWidget {
   final int teacherId;
@@ -152,7 +153,19 @@ class _StudentListScreenState extends State<StudentListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Students'),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,),
+      appBar: AppBar(
+       title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Student List', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+     
+        automaticallyImplyLeading: false,
+      ),
       body: RefreshIndicator(onRefresh: _fetchStudents, child: _buildBody()),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {

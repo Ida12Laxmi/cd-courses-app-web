@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class AddBillForm extends StatefulWidget {
   final int teacherId;
@@ -130,9 +131,22 @@ class _AddBillFormState extends State<AddBillForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Bill' : 'Add New Bill'),
+       // leading: const AppLogo(radius: 18),
+       title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(
+      child: Text(
+        _isEditing ? 'Edit Bill' : 'Add New Bill',
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class TeacherContentSearchScreen extends StatefulWidget {
   final int teacherId;
@@ -140,8 +141,10 @@ class _TeacherContentSearchScreenState extends State<TeacherContentSearchScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+      
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
         title: TextField(
           controller: _controller,
           autofocus: true,

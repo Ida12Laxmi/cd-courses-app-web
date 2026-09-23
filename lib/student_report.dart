@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentAttendanceReportScreen extends StatefulWidget {
   final int studentId;
@@ -60,8 +61,17 @@ class _StudentAttendanceReportScreenState extends State<StudentAttendanceReportS
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
-        title: Text('${widget.studentName} — Report', style: const TextStyle(color: Colors.white)),
+        //title: Text('${widget.studentName} — Report', style: const TextStyle(color: Colors.white)),
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            Text('${widget.studentName} — Report', style: const TextStyle(color: Colors.white)),
+          ],
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
+       
+        automaticallyImplyLeading: false,
       ),
       body: _buildBody(),
     );
