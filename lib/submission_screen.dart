@@ -4,6 +4,7 @@ import 'services/api_service.dart';
 import 'student_submission_search_screen.dart';
 //import 'package:url_launcher/url_launcher.dart';
 import 'secure_content_viewer_screen.dart';
+import 'app_logo.dart';
 
 class SubmissionScreen extends StatefulWidget {
   final int studentId;
@@ -239,28 +240,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     }
   }
 
-/*Future<void> _openFile(dynamic submission) async {
-  final rawUrl = submission['file'] ?? submission['file_url'];
-  if (rawUrl == null || rawUrl.toString().isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No file attached to this submission.')),
-    );
-    return;
-  }
 
-  final path = rawUrl.toString();
- // final fullUrl = path.startsWith('http') ? path : 'http://192.168.0.196:8000$path';
-   final fullUrl = path.startsWith('http') ? path : '${ApiService.baseUrl}$path';
-
-  final uri = Uri.tryParse(fullUrl);
-  if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open file: $fullUrl')),
-      );
-    }
-  }
-}*/
 Future<void> _openFile(dynamic submission) async {
   final rawUrl = submission['file'] ?? submission['file_url'];
   if (rawUrl == null || rawUrl.toString().isEmpty) {
@@ -287,42 +267,21 @@ Future<void> _openFile(dynamic submission) async {
     ),
   );
 }
-/*Future<void> _openFile(dynamic submission) async {
-  final rawUrl = submission['file'] ?? submission['file_url'];
-  if (rawUrl == null || rawUrl.toString().isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No file attached to this submission.')),
-    );
-    return;
-  }
 
-  String fileUrl = rawUrl.toString();
-  if (!fileUrl.startsWith('http')) {
-    // adjust to however ApiService exposes the host, e.g. ApiService.baseUrl
-    fileUrl = '${ApiService.baseUrl}$fileUrl';
-  }
-
-  final uri = Uri.tryParse(fileUrl);
-  if (uri == null) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid file URL.')),
-      );
-    }
-    return;
-  }
-
-  final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-  if (!launched && mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open file.')),
-    );
-  }
-}*/
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+         automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            Text(widget.title),
+          ],
+        ),
       actions: [
         IconButton(icon: const Icon(Icons.search),
         tooltip: 'Search',

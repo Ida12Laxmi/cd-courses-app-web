@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'login.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
@@ -115,7 +116,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
-        title: const Text('Verify Email', style: TextStyle(color: Colors.white)),
+        
+        title: Row(
+          children: [
+            const AppLogo(radius: 16),
+            const SizedBox(width: 8),
+            const Text('Verify Email', style: TextStyle(color: Colors.white)),
+          ],
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
         automaticallyImplyLeading: false,
       ),

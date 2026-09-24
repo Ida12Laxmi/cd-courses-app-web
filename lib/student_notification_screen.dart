@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentNotificationsScreen extends StatefulWidget {
   final int studentId;
@@ -157,8 +158,15 @@ class _StudentNotificationsScreenState extends State<StudentNotificationsScreen>
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
+         automaticallyImplyLeading: false,
         foregroundColor: Colors.white,
-        title: const Text('Notifications'),
+         title: Row(
+  children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Notifications'),
+          ],
+        ),
         actions: [
           if (_notifications.any((n) => n['is_read'] == false))
             TextButton(

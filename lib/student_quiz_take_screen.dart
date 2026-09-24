@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentQuizTakeScreen extends StatefulWidget {
   final int quizId;
@@ -128,7 +129,15 @@ class _StudentQuizTakeScreenState extends State<StudentQuizTakeScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.quizTitle),
+          automaticallyImplyLeading: false,
+          //title: Text(widget.quizTitle),
+          title: Row(
+            children: [
+              const AppLogo(radius: 18),
+              const SizedBox(width: 10),
+              Text(widget.quizTitle),
+            ],
+          ),
           backgroundColor: const Color(0xFF013768),
           foregroundColor: Colors.white,
         ),

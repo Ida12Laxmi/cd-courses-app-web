@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 /// Read-only receipt for a bill that's already marked 'paid'. Shown when
 /// tapping a paid bill in StudentBillsScreen, for either role.
@@ -21,7 +22,15 @@ class BillReceiptScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        title: const Text('Receipt'),
+         automaticallyImplyLeading: false,
+        //title: const Text('Receipt'),
+        title: Row(
+          children: [
+            const AppLogo(radius: 16),
+            const SizedBox(width: 8),
+            const Text('Receipt'),
+          ],
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

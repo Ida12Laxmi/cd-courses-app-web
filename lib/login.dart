@@ -141,15 +141,22 @@ if (fcmToken != null) {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
-                        child: Image.asset(
-                          'assets/icon/cd.png',
-                          height: 160,
-                          width: 220,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
+                       Padding(
+    padding: const EdgeInsets.only(
+      bottom: 10.0,
+      top: 10.0,
+    ),
+    child: Transform.scale(
+      scale: 2.25, // increase logo size
+      child: Image.asset(
+        'assets/icon/cd.png',
+        height: 160,
+        width: 220,
+        fit: BoxFit.contain,
+      ),
+    ),
+  ),
+
                       Card(
                         elevation: 4,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

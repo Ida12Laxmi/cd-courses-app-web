@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 //import 'package:url_launcher/url_launcher.dart';
 import 'secure_content_viewer_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class ChatMessage {
   final int messageId;
@@ -455,7 +456,15 @@ Future<void> _openAttachment(String attachment) async {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.topicTitle),
+         automaticallyImplyLeading: false,
+        //title: Text(widget.topicTitle),
+          title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(child: Text(widget.topicTitle, overflow: TextOverflow.ellipsis)),
+  ],
+),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         elevation: 1,

@@ -6,14 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:gal/gal.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
-/// Student-side "Pay Bill" flow:
-///   Step 1 — shows the teacher's payment QR code (eSewa/Khalti/mobile
-///     banking — whatever they've uploaded via UploadQrScreen), with an
-///     option to download it to the device gallery.
-///   Step 2 — student enters which method they paid with, a transaction
-///     ID, and optionally attaches a screenshot, then submits for the
-///     teacher to verify. Bill status moves to 'pending' server-side.
 class PaymentProofScreen extends StatefulWidget {
   final int teacherId;
   final int billId;
@@ -179,7 +173,15 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Pay Bill'),
+       // title: const Text('Pay Bill'),
+        automaticallyImplyLeading: false,
+         title: Row(
+  children: [
+    const AppLogo(radius: 18),
+    const SizedBox(width: 10),
+    Expanded(child: Text("Pay Bill", overflow: TextOverflow.ellipsis)),
+  ],
+),
         backgroundColor: const Color(0xFFEDE7F6),
         foregroundColor: Colors.black87,
         elevation: 0,

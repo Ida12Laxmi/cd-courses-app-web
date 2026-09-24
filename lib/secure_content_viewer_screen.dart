@@ -9,27 +9,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'services/api_service.dart';
 
-/// Renders content fully in-app — PDF, image, an uploaded video, or a
-/// non-YouTube external video link — with:
-///   - Android: FLAG_SECURE set for the duration of this screen, blocking
-///     screenshots and screen recording, and blacking out the recent-apps
-///     preview.
-///   - iOS: screenshots can't be blocked, only detected/logged.
-///
-/// Two ways to open this screen:
-///   1. SecureContentViewerScreen(...) — content-library flow. Fetches
-///      bytes via ApiService.streamContentBytes(contentId), type decided
-///      by `contentType`. Unchanged from before.
-///   2. SecureContentViewerScreen.forAttachment(...) — chat flow. Fetches
-///      bytes directly from a URL via http, type decided by the file
-///      extension in `fileName`. Use this for chat message attachments.
-///
-/// YouTube links never reach this screen — those are launched directly in
-/// the YouTube app from student_dashboard.dart. Everything else (uploaded
-/// files, or a non-YouTube hosted video URL, or a chat attachment) plays
-/// or renders here, whose controls have no download button — unlike a
-/// browser tab's native player, there's simply no download affordance
-/// exposed at all.
+
 class SecureContentViewerScreen extends StatefulWidget {
   final int? contentId;
   final String title;

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentForgotPasswordScreen extends StatefulWidget {
   const StudentForgotPasswordScreen({super.key});
@@ -104,7 +105,15 @@ class _StudentForgotPasswordScreenState extends State<StudentForgotPasswordScree
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Forgot Password'),
+       // title: const Text('Forgot Password'),
+        automaticallyImplyLeading: false,
+        title: Row(
+  children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Forgot Password'),
+          ],
+        ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
       ),

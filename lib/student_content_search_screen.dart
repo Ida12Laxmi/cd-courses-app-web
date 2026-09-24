@@ -6,8 +6,7 @@ import 'secure_content_viewer_screen.dart';
 
 class StudentContentSearchScreen extends StatefulWidget {
   final int studentId;
-  // When set, search is scoped to just this content type (e.g. 'syllabus').
-  // When null, searches across all 7 content types.
+
   final String? contentType;
   final String? scopeLabel; // e.g. 'Syllabus', shown in the hint/title
   const StudentContentSearchScreen({

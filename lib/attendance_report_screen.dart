@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'services/api_service.dart';
+import 'app_logo.dart';
 
 class StudentAttendanceReportScreen extends StatefulWidget {
   final int studentId;
@@ -26,7 +27,16 @@ class _StudentAttendanceReportScreenState extends State<StudentAttendanceReportS
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0B3D66),
-        title: Text('${widget.studentName} — Report'),
+       // title: Text('${widget.studentName} — Report'),
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            const AppLogo(radius: 16),
+            const SizedBox(width: 8),
+            Text('${widget.studentName} — Report', style: TextStyle(color: Colors.white))
+            
+          ],
+        ),
       ),
       body: FutureBuilder<List<dynamic>>(
         future: _future,

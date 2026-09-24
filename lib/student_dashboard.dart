@@ -13,6 +13,7 @@ import 'student_notification_screen.dart';
 import 'student_content_search_screen.dart';
 import 'change_password_student.dart';
 import 'login.dart';
+import 'app_logo.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   final String studentLevel;
@@ -32,8 +33,9 @@ class StudentDashboardScreen extends StatefulWidget {
 }
 
 class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
+
   late final PageController _pageController;
-  int _currentPage = 0;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -47,7 +49,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     super.dispose();
   }
 
-  void _goToPage(int index) {
+  void _goToTab(int index) {
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -171,38 +173,34 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     }
   }
 
-  Widget _buildHomePage(BuildContext context) {
+  Widget _buildHomeTab(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
         iconTheme: const IconThemeData(color: Colors.white),
-      //  title: Text('${widget.studentName} — Dashboard'),
         automaticallyImplyLeading: false,
+        title: const Row(
+    children: [
+      AppLogo(radius: 18),
+      SizedBox(width: 10),
+     
+    ],
+  ),
         actions: [
-            IconButton(
-    icon: const Icon(Icons.notifications),
-    tooltip: 'Notifications',
-    onPressed: () => Navigator.push(context, MaterialPageRoute(
-      builder: (_) => StudentNotificationsScreen(studentId: widget.studentId),
-    )),
-  ),
-  IconButton(
-    icon: const Icon(Icons.search),
-    tooltip: 'Search',
-    onPressed: () => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => StudentContentSearchScreen(studentId: widget.studentId),
-          )),
-  ),
           IconButton(
-            icon: const Icon(Icons.quiz),
-            tooltip: 'Quizzes',
-            onPressed: () => _goToPage(1),
+            icon: const Icon(Icons.notifications),
+            tooltip: 'Notifications',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => StudentNotificationsScreen(studentId: widget.studentId),
+            )),
           ),
           IconButton(
-            icon: const Icon(Icons.password),
-            tooltip: 'Change Password',
-            onPressed: () => _goToPage(2),
+            icon: const Icon(Icons.search),
+            tooltip: 'Search',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => StudentContentSearchScreen(studentId: widget.studentId),
+            )),
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -248,13 +246,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(item.icon, size: 40,color: const Color(0xFF0B8081),),
-
+                          Icon(item.icon, size: 40, color: const Color(0xFF0B8081)),
                           const SizedBox(height: 8),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(item.label, textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF013768),)),
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF013768))),
                           ),
                         ],
                       ),
@@ -271,31 +268,49 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = <Widget>[
-      _buildHomePage(context),
+    final tabs = <Widget>[
+      _buildHomeTab(context),
       StudentQuizListScreen(
         studentId: widget.studentId,
         teacherId: widget.teacherId,
-        studentLevel:widget.studentLevel,
-        onBack: () => _goToPage(0), 
+        studentLevel: widget.studentLevel,
+        onBack: () => _goToTab(0),
       ),
-      ChangePasswordScreen(studentId: widget.studentId, onBack: () => _goToPage(0),),
+      ChangePasswordScreen(studentId: widget.studentId, onBack: () => _goToTab(0)),
     ];
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_currentPage != 0) {
-          _goToPage(0);
+        if (_currentIndex != 0) {
+          _goToTab(0);
         } else {
           _confirmExit(context);
         }
       },
-      child: PageView(
-        controller: _pageController,
-        onPageChanged: (index) => setState(() => _currentPage = index),
-        children: pages,
+      child: Scaffold(
+        body: PageView(
+          controller: _pageController,
+          onPageChanged: (index) => setState(() => _currentIndex = index),
+          // Leaving default ScrollPhysics (not NeverScrollableScrollPhysics)
+          // is what enables swipe-to-change-tab, on top of tap-to-slide.
+          children: tabs,
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: _goToTab,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFF013768),
+          unselectedItemColor:const Color(0xFF0B8081),
+          backgroundColor: const Color(0xFFF8F9FA),
+          showUnselectedLabels: true,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'Quizzes'),
+            BottomNavigationBarItem(icon: Icon(Icons.password), label: 'Password'),
+          ],
+        ),
       ),
     );
   }
@@ -326,7 +341,18 @@ class _ContentListScreenState extends State<_ContentListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF013768),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            const AppLogo(radius: 16),
+            const SizedBox(width: 8),
+            Text(widget.title),
+          ],
+        ),
+      ),
       body: FutureBuilder<List<dynamic>>(
         future: _future,
         builder: (context, snapshot) {

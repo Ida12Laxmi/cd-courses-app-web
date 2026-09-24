@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'secure_content_viewer_screen.dart';
 
 class StudentSubmissionSearchScreen extends StatefulWidget {
   final int studentId;
@@ -74,27 +74,44 @@ class _StudentSubmissionSearchScreenState extends State<StudentSubmissionSearchS
     }
   }
 
-  Future<void> _openFile(dynamic item) async {
-  final rawUrl = item['file'] ?? item['file_url'];
-  if (rawUrl == null || rawUrl.toString().isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No file attached.')),
-    );
-    return;
-  }
-
-  final path = rawUrl.toString();
-  final fullUrl = path.startsWith('http') ? path : '${ApiService.mediaOrigin}$path';
-
-  final uri = Uri.tryParse(fullUrl);
-  if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-    if (mounted) {
+  // Opens the file inside the app via SecureContentViewerScreen instead of
+  // handing it off to an external app (browser, PDF/photo viewer, etc). This
+  // is what enables screenshot/recording protection and keeps the file from
+  // ever leaving the app's own viewer — applies the same way to files the
+  // teacher gave and files the student submitted, since both come through
+  // this one function.
+  void _openFile(dynamic item) {
+    final rawUrl = item['file'] ?? item['file_url'];
+    if (rawUrl == null || rawUrl.toString().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open file: $fullUrl')),
+        const SnackBar(content: Text('No file attached.')),
       );
+      return;
     }
+
+    final path = rawUrl.toString();
+    final fullUrl = path.startsWith('http') ? path : '${ApiService.mediaOrigin}$path';
+
+    // SecureContentViewerScreen.forAttachment picks how to render the file
+    // (PDF/video/image/unsupported) based on the file's extension, so pull
+    // a filename out of the URL for it to inspect. Falls back to the item's
+    // title if the URL has no path segments for some reason.
+    final uri = Uri.tryParse(fullUrl);
+    final fileName = (uri != null && uri.pathSegments.isNotEmpty)
+        ? uri.pathSegments.last
+        : (item['title']?.toString() ?? 'file');
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SecureContentViewerScreen.forAttachment(
+          url: fullUrl,
+          fileName: fileName,
+          title: item['title']?.toString(),
+        ),
+      ),
+    );
   }
-}
 
   @override
   Widget build(BuildContext context) {

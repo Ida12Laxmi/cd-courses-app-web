@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'student_quiz_take_screen.dart';
 import "config/api_config.dart";
+import 'app_logo.dart';
 
 class StudentQuizListScreen extends StatefulWidget {
   final int studentId;
@@ -128,7 +129,14 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quizzes'),
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Text('Quizzes'),
+          ],
+        ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         leading: widget.onBack != null
