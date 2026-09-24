@@ -9,19 +9,19 @@ if not firebase_admin._apps:
     cred = credentials.Certificate(os.path.join(os.path.dirname(__file__), '..', 'firebase-service-account.json'))
     firebase_admin.initialize_app(cred)
 
-
 def _is_dead_token_error(exception) -> bool:
-    """
-    True if this error means the token will NEVER work again (app
-    uninstalled, token expired/rotated, malformed token) — safe to
-    delete. False for transient errors (quota, network, etc.) which
-    should just be retried later, not treated as dead.
-    """
+    print(f'DEBUG: checking exception type={type(exception)!r}, exception={exception!r}')
     if isinstance(exception, messaging.UnregisteredError):
+        print('DEBUG: matched UnregisteredError')
+        return True
+    if isinstance(exception, messaging.SenderIdMismatchError):
+        print('DEBUG: matched SenderIdMismatchError')
         return True
     from firebase_admin.exceptions import InvalidArgumentError
     if isinstance(exception, InvalidArgumentError):
+        print('DEBUG: matched InvalidArgumentError')
         return True
+    print('DEBUG: no match — treating as transient')
     return False
 
 
