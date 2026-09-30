@@ -12,6 +12,9 @@ import 'upload_qr_screen.dart';
 import 'notifications_screen.dart';
 import 'teacher_content_search_screen.dart';
 import 'app_logo.dart';
+import 'zoom_call_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'meeting_screens.dart';
 
 class Teacherdashboard extends StatefulWidget {
   final int teacherId;
@@ -32,9 +35,13 @@ class Teacherdashboard extends StatefulWidget {
 }
 
 class _TeacherdashboardState extends State<Teacherdashboard> {
-  
   late final PageController _pageController;
   int _currentIndex = 0;
+
+  final ZoomCallService _zoom = ZoomCallService();
+  final TextEditingController _meetingNumberCtrl = TextEditingController();
+  final TextEditingController _passcodeCtrl = TextEditingController();
+  bool _joiningZoom = false;
 
   @override
   void initState() {
@@ -45,6 +52,9 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
   @override
   void dispose() {
     _pageController.dispose();
+    _meetingNumberCtrl.dispose();
+    _passcodeCtrl.dispose();
+    _zoom.dispose();
     super.dispose();
   }
 
@@ -77,6 +87,7 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
     );
 
     if (confirmed == true) {
+      if (!context.mounted) return;
       _logout(context);
     }
   }
@@ -113,6 +124,170 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Zoom
+  // ---------------------------------------------------------------------------
+
+  Future<void> _showJoinClassDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Join class'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _meetingNumberCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Meeting number'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _passcodeCtrl,
+              decoration: const InputDecoration(labelText: 'Passcode'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Join'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _joinZoom(
+        meetingNumber: _meetingNumberCtrl.text.trim(),
+        passcode: _passcodeCtrl.text.trim(),
+      );
+    }
+  }
+
+  Future<void> _joinZoom({
+  required String meetingNumber,
+  required String passcode,
+}) async {
+  if (_joiningZoom) return;
+  setState(() => _joiningZoom = true);
+
+  final name = (widget.teacherName != null && widget.teacherName!.isNotEmpty)
+      ? widget.teacherName!
+      : 'Teacher';
+
+  try {
+    // Ask for camera + microphone before joining
+    final statuses = await [
+      Permission.camera,
+      Permission.microphone,
+    ].request();
+
+    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+    if (!micGranted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Microphone permission denied. You will not be heard in class.'),
+        ),
+      );
+    }
+
+    await _zoom.join(
+      meetingNumber: meetingNumber,
+      password: passcode,
+      // "id|name" so the webhook can match attendance to this teacher
+      displayName: '${widget.teacherId}|$name',
+      role: 1,
+    );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$e')),
+    );
+  } finally {
+    if (mounted) setState(() => _joiningZoom = false);
+  }
+}
+
+  // ---------------------------------------------------------------------------
+  // Home tab
+  // ---------------------------------------------------------------------------
+
+  Widget _buildZoomCard() {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _joiningZoom ? null : _showJoinClassDialog,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _joiningZoom
+                ? const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  )
+                : const Icon(
+                    Icons.video_call,
+                    size: 40,
+                    color: Color(0xFF0B8081),
+                  ),
+            const SizedBox(height: 10),
+            const Text(
+              'Join class',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF013768),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingsCard() {
+  return Card(
+    elevation: 3,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeacherMeetingHome(teacherId: widget.teacherId),
+        ),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.video_call, size: 40, color: Color(0xFF0B8081)),
+          SizedBox(height: 10),
+          Text(
+            'Meetings',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF013768),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
   Widget _buildHomeTab(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -120,20 +295,20 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
         backgroundColor: const Color(0xFF013768),
         iconTheme: const IconThemeData(color: Colors.white),
         automaticallyImplyLeading: false,
-          title: Row(
-    children: [
-      const AppLogo(radius: 18),
-      const SizedBox(width: 10),
-      if (widget.teacherName != null && widget.teacherName!.isNotEmpty)
-        Expanded(
-          child: Text(
-            'Welcome, ${widget.teacherName}',
-            style: const TextStyle(color: Colors.white, fontSize: 18),
-            overflow: TextOverflow.ellipsis,
-          ),
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            if (widget.teacherName != null && widget.teacherName!.isNotEmpty)
+              Expanded(
+                child: Text(
+                  'Welcome, ${widget.teacherName}',
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
         ),
-    ],
-  ),
         // Only one-off actions live here now — search and logout aren't
         // tab destinations, so they don't belong in the bottom bar.
         actions: [
@@ -143,7 +318,8 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => TeacherContentSearchScreen(teacherId: widget.teacherId),
+                builder: (_) =>
+                    TeacherContentSearchScreen(teacherId: widget.teacherId),
               ),
             ),
           ),
@@ -157,7 +333,8 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: GridView.builder(
-          itemCount: contentTypes.length,
+          // +1 for the extra "Join class" (Zoom) card at the end
+          itemCount: contentTypes.length + 1,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             mainAxisSpacing: 16,
@@ -165,6 +342,10 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
             childAspectRatio: 1.1,
           ),
           itemBuilder: (context, index) {
+            if (index == contentTypes.length) {
+              return _buildMeetingsCard();
+            }
+
             final item = contentTypes[index];
             return Card(
               elevation: 3,
@@ -190,7 +371,8 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => AttendanceScreen(teacherId: widget.teacherId),
+                        builder: (_) =>
+                            AttendanceScreen(teacherId: widget.teacherId),
                       ),
                     );
                   } else if (item.type == 'billing') {
@@ -278,15 +460,17 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
           onTap: _goToTab,
           type: BottomNavigationBarType.fixed,
           selectedItemColor: const Color(0xFF013768),
-          unselectedItemColor:const Color(0xFF0B8081),
+          unselectedItemColor: const Color(0xFF0B8081),
           backgroundColor: const Color(0xFFF8F9FA),
-          showUnselectedLabels: true,
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Students'),
             BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'Quizzes'),
-            BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: 'QR Code'),
-            BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts'),
+            BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: 'QR'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.notifications), label: 'Alerts'),
             BottomNavigationBarItem(icon: Icon(Icons.password), label: 'Password'),
           ],
         ),
