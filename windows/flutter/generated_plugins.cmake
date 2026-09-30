@@ -6,7 +6,9 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_windows
   firebase_core
   flutter_secure_storage_windows
+  flutter_zoom_meeting_sdk
   gal
+  permission_handler_windows
   url_launcher_windows
 )
 

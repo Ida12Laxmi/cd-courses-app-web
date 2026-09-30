@@ -6,6 +6,7 @@ import 'submission_screen.dart';
 import 'chat_message.dart';
 import 'attendance_report_screen.dart';
 import 'services/api_service.dart';
+import 'meeting_screen.dart'; 
 import 'package:url_launcher/url_launcher.dart';
 import 'student_bills_list_screen.dart';
 import 'student_quiz_list_screen.dart';
@@ -14,6 +15,7 @@ import 'student_content_search_screen.dart';
 import 'change_password_student.dart';
 import 'login.dart';
 import 'app_logo.dart';
+
 
 class StudentDashboardScreen extends StatefulWidget {
   final String studentLevel;
@@ -33,7 +35,6 @@ class StudentDashboardScreen extends StatefulWidget {
 }
 
 class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
-
   late final PageController _pageController;
   int _currentIndex = 0;
 
@@ -78,6 +79,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     );
 
     if (confirmed == true) {
+      if (!context.mounted) return;
       _logout(context);
     }
   }
@@ -113,6 +115,58 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       SystemNavigator.pop();
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Zoom — now opens the class list (topic/time/duration + confirm-before-join)
+  // instead of a blank manual meeting-number/passcode dialog.
+  // ---------------------------------------------------------------------------
+
+  Widget _buildZoomCard() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StudentMeetingsScreen(
+            studentId: widget.studentId,
+            studentName: widget.studentName,
+          ),
+        ),
+      ),
+      child: Card(
+        elevation: 3,
+        shadowColor: Colors.black26,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.video_call,
+              size: 40,
+              color: Color(0xFF0B8081),
+            ),
+            SizedBox(height: 8),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'My classes',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF013768),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Navigation helpers
+  // ---------------------------------------------------------------------------
 
   String? _chatTopicTitle(String type) {
     switch (type) {
@@ -173,6 +227,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Home tab
+  // ---------------------------------------------------------------------------
+
   Widget _buildHomeTab(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -181,12 +239,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         automaticallyImplyLeading: false,
         title: const Row(
-    children: [
-      AppLogo(radius: 18),
-      SizedBox(width: 10),
-     
-    ],
-  ),
+          children: [
+            AppLogo(radius: 18),
+            SizedBox(width: 10),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
@@ -233,8 +290,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   crossAxisSpacing: 16,
                   childAspectRatio: 1.1,
                 ),
-                itemCount: contentTypes.length,
+                // +1 for the extra "My classes" (Zoom) card at the end
+                itemCount: contentTypes.length + 1,
                 itemBuilder: (context, i) {
+                  if (i == contentTypes.length) {
+                    return _buildZoomCard();
+                  }
+
                   final item = contentTypes[i];
                   return InkWell(
                     borderRadius: BorderRadius.circular(16),
@@ -302,7 +364,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           onTap: _goToTab,
           type: BottomNavigationBarType.fixed,
           selectedItemColor: const Color(0xFF013768),
-          unselectedItemColor:const Color(0xFF0B8081),
+          unselectedItemColor: const Color(0xFF0B8081),
           backgroundColor: const Color(0xFFF8F9FA),
           showUnselectedLabels: true,
           items: const [
