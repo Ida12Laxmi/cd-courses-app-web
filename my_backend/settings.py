@@ -32,6 +32,16 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = f'Click-digitals Courses <{EMAIL_HOST_USER}>'
 
 
+ZOOM_WEBHOOK_SECRET_TOKEN = os.getenv("ZOOM_WEBHOOK_SECRET_TOKEN", "")
+ZOOM_SDK_KEY = os.getenv("ZOOM_SDK_KEY", "")
+ZOOM_SDK_SECRET = os.getenv("ZOOM_SDK_SECRET", "")
+
+ZOOM_S2S_ACCOUNT_ID = os.getenv("ZOOM_S2S_ACCOUNT_ID", "")
+ZOOM_S2S_CLIENT_ID = os.getenv("ZOOM_S2S_CLIENT_ID", "")
+ZOOM_S2S_CLIENT_SECRET = os.getenv("ZOOM_S2S_CLIENT_SECRET", "")
+ZOOM_HOST_EMAIL = os.getenv("ZOOM_HOST_EMAIL", "")
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -41,7 +51,7 @@ SECRET_KEY = 'django-insecure-%f08=p-1j)aistd_x_2xs6w*4)x!0wwkkr(avhxic-9l6&gslj
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.0.196']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.0.196', '.ngrok-free.dev']
 
 
 # Application definition

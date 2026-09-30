@@ -18,10 +18,23 @@ from django.contrib import admin
 from django.urls import path,include
 from django.conf import settings
 from django.conf.urls.static import static
+from accounts.webhook import zoom_webhook
+from accounts.zoomsdk import zoom_sdk_token
+from accounts import zoommeeting as zm
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
+    path("zoom/webhook/", zoom_webhook, name="zoom-webhook"),
+    path("accounts/zoom/sdk-token/", zoom_sdk_token, name="zoom-sdk-token-accounts"),
+    path("meetings/students/<int:teacher_id>/", zm.invitable_students, name="invitable_students"),
+    path("meetings/schedule/", zm.schedule_meeting, name="schedule_meeting"),
+    path("meetings/teacher/<int:teacher_id>/", zm.teacher_meetings, name="teacher_meetings"),
+    path("meetings/student/<int:student_id>/", zm.student_meetings, name="student_meetings"),
+    path("meetings/<int:pk>/host/", zm.host_meeting, name="host_meetings"),
+    path("meetings/<int:pk>/update/", zm.update_meeting, name="update_meeting"),
+    path("meetings/<int:pk>/delete/", zm.delete_meeting, name="delete_meeting"),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

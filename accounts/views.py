@@ -2014,3 +2014,4 @@ def admin_notifications(request):
 def mark_all_read_admin(request):
     Notification.objects.filter(recipient='admin', is_read=False).update(is_read=True)
     return Response({'status': 'all marked read'}, status=status.HTTP_200_OK)
+

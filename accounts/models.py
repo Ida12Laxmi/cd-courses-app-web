@@ -323,3 +323,39 @@ class AdminSide(models.Model):
     def _str_(self):
         return self.fullname
 
+class MeetingAttendance(models.Model):
+    meeting_id = models.CharField(max_length=100)
+    participant_uuid = models.CharField(max_length=100)  # from Zoom's webhook payload
+    participant_name = models.CharField(max_length=255)
+    participant_email = models.EmailField(null=True, blank=True)
+    joined_at = models.DateTimeField()
+    left_at = models.DateTimeField(null=True, blank=True)
+
+    teacher = models.ForeignKey('Teacher', null=True, blank=True, on_delete=models.SET_NULL, related_name='meeting_attendances')
+    student = models.ForeignKey('Student', null=True, blank=True, on_delete=models.SET_NULL, related_name='meeting_attendances')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['meeting_id', 'participant_uuid']),
+        ]
+
+class ScheduledMeeting(models.Model):
+    meeting_id = models.CharField(max_length=100, unique=True)  # Zoom's meeting number
+    passcode = models.CharField(max_length=50, blank=True)
+    topic = models.CharField(max_length=255, blank=True)
+    start_time = models.DateTimeField()
+    duration_minutes = models.PositiveIntegerField(default=40)
+    waiting_room = models.BooleanField(default=False)
+    start_url = models.URLField(max_length=1000, blank=True)  # host-only link
+    join_url = models.URLField(max_length=1000, blank=True)
+    description = models.TextField(blank=True, default="")
+    host_video = models.BooleanField(default=False)
+    participant_video = models.BooleanField(default=False)
+
+    teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='scheduled_meetings')
+    students = models.ManyToManyField('Student', related_name='scheduled_meetings')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-start_time']
