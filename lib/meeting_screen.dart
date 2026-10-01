@@ -50,6 +50,20 @@ String _when(BuildContext context, String iso) {
   return '${l.formatMediumDate(dt)}  ${l.formatTimeOfDay(TimeOfDay.fromDateTime(dt))}';
 }
 
+/// Result of checking "is this meeting open right now?"
+enum MeetingWindow { notStarted, open, ended }
+
+MeetingWindow _windowFor(Map m, {int earlyMinutes = 0}) {
+  final start = DateTime.parse(m['start_time']).toLocal();
+  final end = start.add(Duration(minutes: m['duration_minutes'] as int));
+  final now = DateTime.now();
+  if (now.isAfter(end)) return MeetingWindow.ended;
+  if (now.isBefore(start.subtract(Duration(minutes: earlyMinutes)))) {
+    return MeetingWindow.notStarted;
+  }
+  return MeetingWindow.open;
+}
+
 /// Teacher home: two options, Schedule and Host
 class TeacherMeetingHome extends StatelessWidget {
   const TeacherMeetingHome({super.key, required this.teacherId});
@@ -155,8 +169,9 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                     CheckboxListTile(
                       title: Text(s['name'].toString()),
                       value: chosen.contains(s['id']),
-                      onChanged: (v) => setD(() =>
-                          v == true ? chosen.add(s['id']) : chosen.remove(s['id'])),
+                      onChanged: (v) => setD(() => v == true
+                          ? chosen.add(s['id'])
+                          : chosen.remove(s['id'])),
                     ),
                 ],
               ),
@@ -239,7 +254,8 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.calendar_today),
-                label: Text(_date == null ? 'Date' : l.formatMediumDate(_date!)),
+                label:
+                    Text(_date == null ? 'Date' : l.formatMediumDate(_date!)),
                 onPressed: _pickDate,
               ),
             ),
@@ -325,23 +341,25 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
   final _api = MeetingApi();
   late Future<List<dynamic>> _future = _api.teacherMeetings(widget.teacherId);
 
+  // Keep in sync with HOST_EARLY_MINUTES in Django (zoommeeting.py)
   static const _hostEarlyMinutes = 0;
 
-  void _msg(String text) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(text)));
+  void _msg(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
 
   Future<void> _host(Map m) async {
-    final start = DateTime.parse(m['start_time']).toLocal();
-    final end = start.add(Duration(minutes: m['duration_minutes'] as int));
-    final now = DateTime.now();
-
-    if (now.isAfter(end)) {
-      _msg('Time passed. This meeting has already ended.');
-      return;
-    }
-    if (now.isBefore(start.subtract(const Duration(minutes: _hostEarlyMinutes)))) {
-      _msg('Not started yet. You can host it at ${_when(context, m['start_time'])}.');
-      return;
+    switch (_windowFor(m, earlyMinutes: _hostEarlyMinutes)) {
+      case MeetingWindow.ended:
+        _msg('Time passed. This meeting has already ended.');
+        return;
+      case MeetingWindow.notStarted:
+        _msg('Not started yet. You can host it at '
+            '${_when(context, m['start_time'])}.');
+        return;
+      case MeetingWindow.open:
+        break;
     }
 
     try {
@@ -350,7 +368,6 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
           mode: LaunchMode.externalApplication);
       if (!ok) _msg('Could not open Zoom');
     } catch (e) {
-      if (!mounted) return;
       _msg(e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -385,11 +402,12 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
                 return ListTile(
                   title: Text(m['topic'].toString()),
                   subtitle: Text(
-                    '${_when(context, m['start_time'])} · ${m['duration_minutes']} min · ${(m['student_ids'] as List).length} student(s)'),
+                      '${_when(context, m['start_time'])} · ${m['duration_minutes']} min · ${(m['student_ids'] as List).length} student(s)'),
                   trailing: FilledButton(
-                  onPressed: () => _host(m),
-                  child: const Text('Host')),
-);
+                    onPressed: () => _host(m),
+                    child: const Text('Host'),
+                  ),
+                );
               },
             );
           },
@@ -414,8 +432,12 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
   final _zoom = ZoomCallService();
   late Future<List<dynamic>> _future = _api.studentMeetings(widget.studentId);
 
-  // CHANGED: was `bool _joining`. Now remembers WHICH meeting is being joined.
+  // Remembers WHICH meeting is being joined.
   int? _joiningId;
+
+  // Minutes before start that students may open the join dialog.
+  // 0 = only from the exact start time.
+  static const _joinEarlyMinutes = 0;
 
   @override
   void dispose() {
@@ -423,7 +445,11 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
     super.dispose();
   }
 
-  // CHANGED: takes the meeting's id so only that row shows the joining state
+  void _msg(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   Future<void> _joinWith({
     required int id,
     required String meetingNumber,
@@ -440,23 +466,33 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
         displayName: '${widget.studentId}|${widget.studentName}',
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not join: $e')));
+      _msg('Could not join: $e');
     } finally {
       if (mounted) setState(() => _joiningId = null);
     }
   }
 
-  /// Shows the class's details plus editable, pre-filled Meeting ID and
-  /// Passcode fields. The student reviews/confirms before actually joining.
+  /// Checks the time window first. Only if the class is running right now
+  /// does it show the pre-filled Meeting ID / Passcode dialog.
   Future<void> _openJoinDialog(Map m) async {
-    // CHANGED: block opening another dialog while a join is in progress
     if (_joiningId != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Already joining a class...')));
+      _msg('Already joining a class...');
       return;
     }
+
+    // ---- time window check ----
+    switch (_windowFor(m, earlyMinutes: _joinEarlyMinutes)) {
+      case MeetingWindow.ended:
+        _msg('Time passed. This class has already ended.');
+        return;
+      case MeetingWindow.notStarted:
+        _msg('Not started yet. Class starts at '
+            '${_when(context, m['start_time'])}.');
+        return;
+      case MeetingWindow.open:
+        break;
+    }
+    // ---- end check ----
 
     final meetingCtrl =
         TextEditingController(text: m['meeting_id'].toString());
@@ -503,7 +539,7 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
 
     if (confirmed == true) {
       await _joinWith(
-        id: m['id'] as int, // CHANGED: pass this meeting's id
+        id: m['id'] as int,
         meetingNumber: meetingCtrl.text.trim(),
         passcode: passcodeCtrl.text.trim(),
       );
@@ -539,14 +575,14 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, i) {
                 final m = items[i] as Map;
-                // CHANGED: only true for the row that is actually joining
+                // Only true for the row that is actually joining
                 final isThisJoining = _joiningId == m['id'];
                 return ListTile(
                   title: Text(m['topic'].toString()),
                   subtitle: Text(
                       '${_when(context, m['start_time'])} · ${m['duration_minutes']} min'),
                   trailing: FilledButton(
-                    // CHANGED: only this row's button is disabled/spinning
+                    // Only this row's button is disabled/spinning
                     onPressed: isThisJoining ? null : () => _openJoinDialog(m),
                     child: isThisJoining
                         ? const SizedBox(
