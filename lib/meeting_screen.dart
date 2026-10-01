@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/zoom_call_service.dart';
 import '../config/api_config.dart'; // adjust to where your ApiConfig lives
+import 'app_logo.dart';
 
 class MeetingApi {
   Uri _u(String path) => Uri.parse('${ApiConfig.mediaBaseUrl}$path');
@@ -50,6 +51,19 @@ String _when(BuildContext context, String iso) {
   return '${l.formatMediumDate(dt)}  ${l.formatTimeOfDay(TimeOfDay.fromDateTime(dt))}';
 }
 
+AppBar _meetingAppBar(String title) => AppBar(
+      backgroundColor: const Color(0xFF013768),
+      foregroundColor: Colors.white,
+      titleSpacing: 0,
+      title: Row(
+        children: [
+          const AppLogo(radius: 18),
+          const SizedBox(width: 12),
+          Flexible(child: Text(title, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+
 /// Result of checking "is this meeting open right now?"
 enum MeetingWindow { notStarted, open, ended }
 
@@ -84,7 +98,14 @@ class TeacherMeetingHome extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meetings'),
+
+        title: Row(
+    children: [
+      const AppLogo(radius: 22),   // bigger than the default 18
+      const SizedBox(width: 12),
+      Text('Meetings'),           // your existing name
+    ],
+  ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
       ),
@@ -551,11 +572,7 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My classes'),
-        backgroundColor: const Color(0xFF013768),
-        foregroundColor: Colors.white,
-      ),
+      appBar: _meetingAppBar('My classes'),
       body: RefreshIndicator(
         onRefresh: () async =>
             setState(() => _future = _api.studentMeetings(widget.studentId)),
