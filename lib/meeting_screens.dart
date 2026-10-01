@@ -37,12 +37,12 @@ class MeetingApi {
       await http.post(_u('/meetings/schedule/'),
           headers: _json, body: jsonEncode(body)));
 
-  // NEW: edit a meeting
+  // edit a meeting
   Future<void> updateMeeting(int id, Map<String, dynamic> body) async =>
       _check(await http.put(_u('/meetings/$id/update/'),
           headers: _json, body: jsonEncode(body)));
 
-  // NEW: delete a meeting
+  // delete a meeting
   Future<void> deleteMeeting(int id, int teacherId) async => _check(
       await http.delete(_u('/meetings/$id/delete/?teacher_id=$teacherId')));
 
@@ -57,6 +57,20 @@ String _when(BuildContext context, String iso) {
   final dt = DateTime.parse(iso).toLocal();
   final l = MaterialLocalizations.of(context);
   return '${l.formatMediumDate(dt)}  ${l.formatTimeOfDay(TimeOfDay.fromDateTime(dt))}';
+}
+
+/// Is this meeting open right now? (uses the phone's local time)
+enum MeetingWindow { notStarted, open, ended }
+
+MeetingWindow _windowFor(Map m, {int earlyMinutes = 0}) {
+  final start = DateTime.parse(m['start_time']).toLocal();
+  final end = start.add(Duration(minutes: m['duration_minutes'] as int));
+  final now = DateTime.now();
+  if (now.isAfter(end)) return MeetingWindow.ended;
+  if (now.isBefore(start.subtract(Duration(minutes: earlyMinutes)))) {
+    return MeetingWindow.notStarted;
+  }
+  return MeetingWindow.open;
 }
 
 /// Teacher home: two options, Schedule and Host
@@ -99,9 +113,9 @@ class TeacherMeetingHome extends StatelessWidget {
 /// Schedule Meeting form (also used for editing when [existing] is given)
 class ScheduleMeetingScreen extends StatefulWidget {
   const ScheduleMeetingScreen(
-      {super.key, required this.teacherId, this.existing}); // CHANGED
+      {super.key, required this.teacherId, this.existing});
   final int teacherId;
-  final Map? existing; // NEW: pass a meeting to edit it
+  final Map? existing; // pass a meeting to edit it
 
   @override
   State<ScheduleMeetingScreen> createState() => _ScheduleMeetingScreenState();
@@ -120,9 +134,9 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   final Set<int> _invited = {};
   bool _saving = false;
 
-  bool get _isEdit => widget.existing != null; // NEW
+  bool get _isEdit => widget.existing != null;
 
-  // NEW: pre-fill the form when editing
+  // pre-fill the form when editing
   @override
   void initState() {
     super.initState();
@@ -149,12 +163,14 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     super.dispose();
   }
 
-  void _snack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    // CHANGED: allow an existing (possibly earlier) date without crashing
+    // allow an existing (possibly earlier) date without crashing
     final first = (_date != null && _date!.isBefore(now)) ? _date! : now;
     final d = await showDatePicker(
       context: context,
@@ -239,7 +255,6 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     };
     setState(() => _saving = true);
     try {
-      // CHANGED: update when editing, create otherwise
       if (_isEdit) {
         await _api.updateMeeting(widget.existing!['id'] as int, body);
       } else {
@@ -249,7 +264,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       _snack(_isEdit ? 'Meeting updated' : 'Meeting scheduled');
       Navigator.pop(context, true);
     } catch (e) {
-      _snack('Could not save: $e');
+      _snack('Could not save: ${e.toString().replaceFirst('Exception: ', '')}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -260,7 +275,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     final l = MaterialLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEdit ? 'Edit Meeting' : 'Schedule Meeting'), // CHANGED
+        title: Text(_isEdit ? 'Edit Meeting' : 'Schedule Meeting'),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
       ),
@@ -340,7 +355,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                         height: 18,
                         width: 18,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_isEdit ? 'Update' : 'Save'), // CHANGED
+                    : Text(_isEdit ? 'Update' : 'Save'),
               ),
             ),
             const SizedBox(width: 12),
@@ -356,7 +371,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   }
 }
 
-/// Host: teacher's scheduled meetings, tap Host to start as host
+/// Host: teacher's scheduled meetings. Host / Edit / Delete.
 class HostMeetingsScreen extends StatefulWidget {
   const HostMeetingsScreen({super.key, required this.teacherId});
   final int teacherId;
@@ -369,33 +384,46 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
   final _api = MeetingApi();
   late Future<List<dynamic>> _future = _api.teacherMeetings(widget.teacherId);
 
- /* void _refresh() =>
-      setState(() => _future = _api.teacherMeetings(widget.teacherId));*/
+  // Keep in sync with HOST_EARLY_MINUTES in Django (zoommeeting.py).
+  // 0 = host only from the exact start time.
+  static const _hostEarlyMinutes = 0;
 
   void _refresh() {
-  setState(() {
-    _future = _api.teacherMeetings(widget.teacherId);
-  });
-}    
-  
+    setState(() {
+      _future = _api.teacherMeetings(widget.teacherId);
+    });
+  }
 
-  Future<void> _host(int id) async {
+  void _msg(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// Time check first (using the phone's local time), then ask the server
+  /// for a fresh host link. Takes the whole meeting map, not just the id.
+  Future<void> _host(Map m) async {
+    switch (_windowFor(m, earlyMinutes: _hostEarlyMinutes)) {
+      case MeetingWindow.ended:
+        _msg('Time passed. This meeting has already ended.');
+        return;
+      case MeetingWindow.notStarted:
+        _msg('Not started yet. You can host it at '
+            '${_when(context, m['start_time'])}.');
+        return;
+      case MeetingWindow.open:
+        break;
+    }
+
     try {
-      final url = await _api.hostUrl(id, widget.teacherId);
+      final url = await _api.hostUrl(m['id'] as int, widget.teacherId);
       final ok = await launchUrl(Uri.parse(url),
           mode: LaunchMode.externalApplication);
-      if (!ok && mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Could not open Zoom')));
-      }
+      if (!ok) _msg('Could not open Zoom');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not host: $e')));
+      _msg(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
-  // NEW
   Future<void> _edit(Map m) async {
     final changed = await Navigator.push<bool>(
       context,
@@ -407,7 +435,6 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
     if (changed == true) _refresh();
   }
 
-  // NEW
   Future<void> _delete(Map m) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -431,14 +458,10 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
 
     try {
       await _api.deleteMeeting(m['id'] as int, widget.teacherId);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Meeting deleted')));
+      _msg('Meeting deleted');
       _refresh();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not delete: $e')));
+      _msg('Could not delete: ${e.toString().replaceFirst('Exception: ', '')}');
     }
   }
 
@@ -451,10 +474,10 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
         foregroundColor: Colors.white,
       ),
       body: RefreshIndicator(
-       // onRefresh: () async => _refresh(),
-       onRefresh: () async { _refresh();
-                   await _future;
-            },
+        onRefresh: () async {
+          _refresh();
+          await _future;
+        },
         child: FutureBuilder<List<dynamic>>(
           future: _future,
           builder: (context, snap) {
@@ -475,12 +498,11 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
                   title: Text(m['topic'].toString()),
                   subtitle: Text(
                       '${_when(context, m['start_time'])} · ${m['duration_minutes']} min · ${(m['student_ids'] as List).length} student(s)'),
-                  // CHANGED: Host button + Edit/Delete menu
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       FilledButton(
-                          onPressed: () => _host(m['id'] as int),
+                          onPressed: () => _host(m),
                           child: const Text('Host')),
                       PopupMenuButton<String>(
                         onSelected: (v) => v == 'edit' ? _edit(m) : _delete(m),
@@ -531,9 +553,11 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
   final _zoom = ZoomCallService();
   late Future<List<dynamic>> _future = _api.studentMeetings(widget.studentId);
 
-  // CHANGED: was `bool _joining`. Now remembers WHICH meeting is being joined,
-  // so only that row reacts (fixes "click one, both look clicked").
+  // Remembers WHICH meeting is being joined, so only that row reacts.
   int? _joiningId;
+
+  // Minutes before start that students may join. 0 = exact start time.
+  static const _joinEarlyMinutes = 0;
 
   @override
   void dispose() {
@@ -541,9 +565,29 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
     super.dispose();
   }
 
+  void _msg(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   Future<void> _join(Map m) async {
     if (_joiningId != null) return;
-    setState(() => _joiningId = m['id'] as int); // CHANGED
+
+    // ---- time window check ----
+    switch (_windowFor(m, earlyMinutes: _joinEarlyMinutes)) {
+      case MeetingWindow.ended:
+        _msg('Time passed. This class has already ended.');
+        return;
+      case MeetingWindow.notStarted:
+        _msg('Not started yet. Class starts at '
+            '${_when(context, m['start_time'])}.');
+        return;
+      case MeetingWindow.open:
+        break;
+    }
+    // ---- end check ----
+
+    setState(() => _joiningId = m['id'] as int);
     try {
       await [Permission.camera, Permission.microphone].request();
       await _zoom.join(
@@ -553,11 +597,9 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
         displayName: '${widget.studentId}|${widget.studentName}',
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not join: $e')));
+      _msg('Could not join: $e');
     } finally {
-      if (mounted) setState(() => _joiningId = null); // CHANGED
+      if (mounted) setState(() => _joiningId = null);
     }
   }
 
@@ -571,11 +613,11 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-  setState(() {
-    _future = _api.studentMeetings(widget.studentId);
-  });
-  await _future;
-},
+          setState(() {
+            _future = _api.studentMeetings(widget.studentId);
+          });
+          await _future;
+        },
         child: FutureBuilder<List<dynamic>>(
           future: _future,
           builder: (context, snap) {
@@ -592,15 +634,13 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, i) {
                 final m = items[i] as Map;
-                // CHANGED: true only for the row that is actually joining
                 final isThisJoining = _joiningId == m['id'];
                 return ListTile(
                   title: Text(m['topic'].toString()),
                   subtitle: Text(
                       '${_when(context, m['start_time'])} · ${m['duration_minutes']} min'),
                   trailing: FilledButton(
-                    onPressed:
-                        _joiningId != null ? null : () => _join(m), // CHANGED
+                    onPressed: _joiningId != null ? null : () => _join(m),
                     child: isThisJoining
                         ? const SizedBox(
                             height: 18,
