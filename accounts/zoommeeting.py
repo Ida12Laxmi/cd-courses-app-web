@@ -247,14 +247,45 @@ def teacher_meetings(request, teacher_id):
         return _err("Teacher not found", 404)
     return Response([_row(m) for m in ScheduledMeeting.objects.filter(teacher=teacher)])
 
-
+"""
 @open_api("POST")
 def host_meeting(request, pk):
-    """Returns a fresh host link (start_url expires quickly, so we re-fetch it)."""
+    Returns a fresh host link (start_url expires quickly, so we re-fetch it).
     teacher = _teacher(request.data.get("teacher_id"))
     if not teacher:
         return _err("Teacher not found", 404)
     meeting = get_object_or_404(ScheduledMeeting, pk=pk, teacher=teacher)
+    try:
+        z = _zoom("GET", f"/meetings/{meeting.meeting_id}")
+    except requests.RequestException as e:
+        return _err(f"Zoom error: {e}", 502)
+    meeting.start_url = z.get("start_url", meeting.start_url)
+    meeting.save(update_fields=["start_url"])
+    return Response({"start_url": meeting.start_url})
+"""
+
+HOST_EARLY_MINUTES = 0 
+
+@open_api("POST")
+def host_meeting(request, pk):
+    """Returns a fresh host link, only inside the meeting's time window."""
+    teacher = _teacher(request.data.get("teacher_id"))
+    if not teacher:
+        return _err("Teacher not found", 404)
+    meeting = get_object_or_404(ScheduledMeeting, pk=pk, teacher=teacher)
+
+    now = timezone.now()
+    opens_at = meeting.start_time - timedelta(minutes=HOST_EARLY_MINUTES)
+    ends_at = meeting.start_time + timedelta(minutes=meeting.duration_minutes)
+
+    if now > ends_at:
+        return _err("Time passed. This meeting has already ended.", 400)
+    if now < opens_at:
+        return _err(
+            f"Not started yet. You can host this meeting from {_when_text(opens_at)}.",
+            400,
+        )
+
     try:
         z = _zoom("GET", f"/meetings/{meeting.meeting_id}")
     except requests.RequestException as e:
