@@ -21,6 +21,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from .firebase_utils import notify_student
 from .models import ScheduledMeeting, Student, Teacher
+from zoneinfo import ZoneInfo
+
+APP_TZ = ZoneInfo("Asia/Kathmandu")
+
+
 
 MAX_MINUTES = 40  # Zoom Basic plan limit
 
@@ -38,7 +43,8 @@ def _err(detail, code):
     return Response({"detail": detail}, status=code)
 
 def _when_text(dt):
-    return timezone.localtime(dt).strftime("%b %d, %I:%M %p")
+
+    return dt.astimezone(APP_TZ).strftime("%b %d, %I:%M %p")
 
 
 def _teacher(teacher_id):
@@ -282,7 +288,7 @@ def host_meeting(request, pk):
         return _err("Time passed. This meeting has already ended.", 400)
     if now < opens_at:
         return _err(
-            f"Not started yet. You can host this meeting from {_when_text(opens_at)}.",
+            f"Not started yet.",
             400,
         )
 
@@ -425,3 +431,19 @@ def delete_meeting(request, pk):
     )
 
     return Response(status=204)
+
+@open_api("POST")
+def join_meeting(request, pk):
+    student = _student(request.data.get("student_id"))
+    if not student:
+        return _err("Student not found", 404)
+    meeting = get_object_or_404(ScheduledMeeting, pk=pk, students=student)
+
+    now = timezone.now()
+    ends_at = meeting.start_time + timedelta(minutes=meeting.duration_minutes)
+    if now > ends_at:
+        return _err("Time passed. This class has already ended.", 400)
+    if now < meeting.start_time:
+        return _err(f"Not started yet. Class starts at {_when_text(meeting.start_time)}.", 400)
+
+    return Response({"meeting_id": meeting.meeting_id, "passcode": meeting.passcode})

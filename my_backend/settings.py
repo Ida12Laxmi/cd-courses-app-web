@@ -41,6 +41,8 @@ ZOOM_S2S_CLIENT_ID = os.getenv("ZOOM_S2S_CLIENT_ID", "")
 ZOOM_S2S_CLIENT_SECRET = os.getenv("ZOOM_S2S_CLIENT_SECRET", "")
 ZOOM_HOST_EMAIL = os.getenv("ZOOM_HOST_EMAIL", "")
 
+TIME_ZONE = 'Asia/Kathmandu'
+USE_TZ = True
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
