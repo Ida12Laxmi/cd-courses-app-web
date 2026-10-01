@@ -325,19 +325,33 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
   final _api = MeetingApi();
   late Future<List<dynamic>> _future = _api.teacherMeetings(widget.teacherId);
 
-  Future<void> _host(int id) async {
+  static const _hostEarlyMinutes = 0;
+
+  void _msg(String text) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(text)));
+
+  Future<void> _host(Map m) async {
+    final start = DateTime.parse(m['start_time']).toLocal();
+    final end = start.add(Duration(minutes: m['duration_minutes'] as int));
+    final now = DateTime.now();
+
+    if (now.isAfter(end)) {
+      _msg('Time passed. This meeting has already ended.');
+      return;
+    }
+    if (now.isBefore(start.subtract(const Duration(minutes: _hostEarlyMinutes)))) {
+      _msg('Not started yet. You can host it at ${_when(context, m['start_time'])}.');
+      return;
+    }
+
     try {
-      final url = await _api.hostUrl(id, widget.teacherId);
+      final url = await _api.hostUrl(m['id'] as int, widget.teacherId);
       final ok = await launchUrl(Uri.parse(url),
           mode: LaunchMode.externalApplication);
-      if (!ok && mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Could not open Zoom')));
-      }
+      if (!ok) _msg('Could not open Zoom');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not host: $e')));
+      _msg(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -367,15 +381,15 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
               itemCount: items.length,
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, i) {
-                final m = items[i];
+                final m = items[i] as Map;
                 return ListTile(
                   title: Text(m['topic'].toString()),
                   subtitle: Text(
-                      '${_when(context, m['start_time'])} · ${m['duration_minutes']} min · ${(m['student_ids'] as List).length} student(s)'),
+                    '${_when(context, m['start_time'])} · ${m['duration_minutes']} min · ${(m['student_ids'] as List).length} student(s)'),
                   trailing: FilledButton(
-                      onPressed: () => _host(m['id'] as int),
-                      child: const Text('Host')),
-                );
+                  onPressed: () => _host(m),
+                  child: const Text('Host')),
+);
               },
             );
           },
