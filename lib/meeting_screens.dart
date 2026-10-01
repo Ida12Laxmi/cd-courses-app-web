@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'zoom_call_service.dart';
 import '../config/api_config.dart'; // adjust to where your ApiConfig lives
+import 'app_logo.dart';
 
 class MeetingApi {
   Uri _u(String path) => Uri.parse('${ApiConfig.mediaBaseUrl}$path');
@@ -59,6 +60,19 @@ String _when(BuildContext context, String iso) {
   return '${l.formatMediumDate(dt)}  ${l.formatTimeOfDay(TimeOfDay.fromDateTime(dt))}';
 }
 
+AppBar _meetingAppBar(String title) => AppBar(
+      backgroundColor: const Color(0xFF013768),
+      foregroundColor: Colors.white,
+      titleSpacing: 0,
+      title: Row(
+        children: [
+          const AppLogo(radius: 18),
+          const SizedBox(width: 12),
+          Flexible(child: Text(title, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+
 /// Is this meeting open right now? (uses the phone's local time)
 enum MeetingWindow { notStarted, open, ended }
 
@@ -92,11 +106,7 @@ class TeacherMeetingHome extends StatelessWidget {
         );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meetings'),
-        backgroundColor: const Color(0xFF013768),
-        foregroundColor: Colors.white,
-      ),
+      appBar: _meetingAppBar('Meetings'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -274,12 +284,8 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   Widget build(BuildContext context) {
     final l = MaterialLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEdit ? 'Edit Meeting' : 'Schedule Meeting'),
-        backgroundColor: const Color(0xFF013768),
-        foregroundColor: Colors.white,
-      ),
-      body: ListView(
+      appBar: _meetingAppBar(_isEdit ? 'Edit Meeting' : 'Schedule Meeting'),
+        body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
@@ -468,11 +474,8 @@ class _HostMeetingsScreenState extends State<HostMeetingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Host a meeting'),
-        backgroundColor: const Color(0xFF013768),
-        foregroundColor: Colors.white,
-      ),
+    
+      appBar: _meetingAppBar('Host a meeting'),
       body: RefreshIndicator(
         onRefresh: () async {
           _refresh();
@@ -606,11 +609,7 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My classes'),
-        backgroundColor: const Color(0xFF013768),
-        foregroundColor: Colors.white,
-      ),
+      appBar: _meetingAppBar('My classes'),
       body: RefreshIndicator(
         onRefresh: () async {
           setState(() {
