@@ -1,12 +1,15 @@
+// Student project: paste this over lib/login.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'otp_verification_screen.dart';
 import 'student_dashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'services/api_service.dart';
 import 'student_forgot_screen.dart';
-
+import 'config/api_config.dart';
 
 class StudentLogin extends StatefulWidget {
   final String? prefillEmail;
@@ -19,7 +22,6 @@ class StudentLogin extends StatefulWidget {
 class _StudentLoginState extends State<StudentLogin> {
   final TextEditingController email = TextEditingController();
   final TextEditingController password = TextEditingController();
-
 
   @override
   void initState() {
@@ -43,7 +45,8 @@ class _StudentLoginState extends State<StudentLogin> {
 
     setState(() => _isLoading = true);
 
-    final url = Uri.parse('http://192.168.0.196:8000/accounts/students/login/');
+    // Uses the same server address as the rest of the app (config/api_config.dart)
+    final url = Uri.parse('${ApiConfig.baseUrl}/students/login/');
     try {
       final response = await http.post(
         url,
@@ -59,29 +62,40 @@ class _StudentLoginState extends State<StudentLogin> {
       if (response.statusCode == 200) {
         final student = data['student'];
 
+        final studentId = int.parse(student['sid'].toString());
+        final studentName = student['username'].toString();
+        final teacherId = int.parse(student['tid'].toString());
+        final studentLevel = student['level'].toString();
+
+        // Remember the login on this phone (never the password)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('student_id', studentId);
+        await prefs.setString('student_name', studentName);
+        await prefs.setInt('teacher_id', teacherId);
+        await prefs.setString('student_level', studentLevel);
+
         final fcmToken = await FirebaseMessaging.instance.getToken();
-if (fcmToken != null) {
-  try {
-    await ApiService.registerDeviceToken(
-      role: 'student',
-      userId: int.parse(student['sid'].toString()),
-      token: fcmToken,
-    );
-  } catch (e) {
-    debugPrint('Failed to register device token: $e');
-  }
-}
+        if (fcmToken != null) {
+          try {
+            await ApiService.registerDeviceToken(
+              role: 'student',
+              userId: studentId,
+              token: fcmToken,
+            );
+          } catch (e) {
+            debugPrint('Failed to register device token: $e');
+          }
+        }
 
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              //builder: (_) => Placeholder(), // swap with StudentDashboard(...)
-               builder: (_) => StudentDashboardScreen(
-                 studentId: int.parse(student['sid'].toString()),
-                 studentName: student['username'].toString(),
-                 teacherId: int.parse(student['tid'].toString()),
-                  studentLevel: student['level'].toString(),
+              builder: (_) => StudentDashboardScreen(
+                studentId: studentId,
+                studentName: studentName,
+                teacherId: teacherId,
+                studentLevel: studentLevel,
               ),
             ),
           );
@@ -125,7 +139,7 @@ if (fcmToken != null) {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-             /* children: [
+              /* children: [
                 Text(
                   'Click-digitals Courses App',
                   style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
@@ -141,22 +155,21 @@ if (fcmToken != null) {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                       Padding(
-    padding: const EdgeInsets.only(
-      bottom: 10.0,
-      top: 10.0,
-    ),
-    child: Transform.scale(
-      scale: 2.25, // increase logo size
-      child: Image.asset(
-        'assets/icon/cd.png',
-        height: 160,
-        width: 220,
-        fit: BoxFit.contain,
-      ),
-    ),
-  ),
-
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: 10.0,
+                          top: 10.0,
+                        ),
+                        child: Transform.scale(
+                          scale: 2.25, // increase logo size
+                          child: Image.asset(
+                            'assets/icon/cd.png',
+                            height: 160,
+                            width: 220,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
                       Card(
                         elevation: 4,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -171,25 +184,23 @@ if (fcmToken != null) {
                                 decoration: const InputDecoration(labelText: 'Email'),
                               ),
                               const SizedBox(height: 20),
-                            TextField(
-                              controller:password,
-                              //decoration: const InputDecoration(labelText: 'Password',),
-                              obscureText: _isObscured,
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _isObscured ? Icons.visibility : Icons.visibility_off,
+                              TextField(
+                                controller: password,
+                                obscureText: _isObscured,
+                                decoration: InputDecoration(
+                                  labelText: 'Password',
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _isObscured ? Icons.visibility : Icons.visibility_off,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _isObscured = !_isObscured;
+                                      });
+                                    },
                                   ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isObscured = !_isObscured;
-                                    });
-                                  },
                                 ),
                               ),
-                              
-                            ),
                               const SizedBox(height: 30),
                               SizedBox(
                                 width: double.infinity,
@@ -202,37 +213,41 @@ if (fcmToken != null) {
                                   onPressed: _isLoading ? null : _loginStudent,
                                   child: _isLoading
                                       ? const CircularProgressIndicator(color: Colors.white)
-                                      : const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
+                                      : const Text('Login',
+                                          style: TextStyle(fontSize: 18, color: Colors.white)),
                                 ),
                               ),
                               const Divider(height: 30),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (_) => const OtpVerificationScreen()),
-                            );
-                          },
-                          child: const Text('Not verified? Go to OTP Verification', style: TextStyle(color: Color(0xFF0B8081))),
-                        ),
-                        const SizedBox(height: 20),
-                        TextButton(
-                        style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const StudentForgotPasswordScreen()),
-                        ),
-                        child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF0B8081))),
-                        ),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const OtpVerificationScreen()),
+                                  );
+                                },
+                                child: const Text('Not verified? Go to OTP Verification',
+                                    style: TextStyle(color: Color(0xFF0B8081))),
+                              ),
+                              const SizedBox(height: 20),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const StudentForgotPasswordScreen()),
+                                ),
+                                child: const Text('Forgot password?',
+                                    style: TextStyle(color: Color(0xFF0B8081))),
+                              ),
                             ],
                           ),
                         ),

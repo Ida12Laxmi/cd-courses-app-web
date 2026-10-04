@@ -13,6 +13,7 @@ import 'student_quiz_list_screen.dart';
 import 'student_notification_screen.dart';
 import 'student_content_search_screen.dart';
 import 'change_password_student.dart';
+import 'group_room_service.dart';
 import 'login.dart';
 import 'app_logo.dart';
 
@@ -164,6 +165,46 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     );
   }
 
+  Widget _buildGroupRoomCard() {
+  return InkWell(
+    borderRadius: BorderRadius.circular(16),
+    onTap: () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GroupRoomScreen(
+          teacherId: widget.teacherId,
+          role: 'student',
+          userId: widget.studentId,
+        ),
+      ),
+    ),
+    child: Card(
+      elevation: 3,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.groups, size: 40, color: Color(0xFF0B8081)),
+          SizedBox(height: 8),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'Class Room',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF013768),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
   // ---------------------------------------------------------------------------
   // Navigation helpers
   // ---------------------------------------------------------------------------
@@ -291,11 +332,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   childAspectRatio: 1.1,
                 ),
                 // +1 for the extra "My classes" (Zoom) card at the end
-                itemCount: contentTypes.length + 1,
+                itemCount: contentTypes.length + 2,
                 itemBuilder: (context, i) {
                   if (i == contentTypes.length) {
                     return _buildZoomCard();
                   }
+                  if (i == contentTypes.length + 1) {
+                      return _buildGroupRoomCard();
+            }
 
                   final item = contentTypes[i];
                   return InkWell(
