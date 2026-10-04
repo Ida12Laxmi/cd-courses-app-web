@@ -1,23 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'teacherdashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'teacher_forgot_screen.dart';
 import 'otp_verification_screen.dart';
 import "config/api_config.dart";
-void main() {
-  runApp(const MyApp());
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Read the saved login (if any) before the first screen is built.
+  final prefs = await SharedPreferences.getInstance();
+  runApp(MyApp(
+    teacherId: prefs.getInt('teacher_id'),
+    teacherName: prefs.getString('teacher_name'),
+  ));
 }
 
-class MyApp extends StatelessWidget{
-  const MyApp({super.key});
+class MyApp extends StatelessWidget {
+  final int? teacherId;
+  final String? teacherName;
+
+  const MyApp({super.key, this.teacherId, this.teacherName});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const Login(),
+      // Already logged in -> go straight to the dashboard
+      home: teacherId != null
+          ? Teacherdashboard(teacherId: teacherId!, teacherName: teacherName)
+          : const Login(),
     );
   }
 }
@@ -29,15 +44,14 @@ class Login extends StatefulWidget {
   State<Login> createState() => _LoginState();
 }
 
-class _LoginState extends State<Login>{
-  
-  final TextEditingController email=TextEditingController();
-  final TextEditingController password=TextEditingController();
+class _LoginState extends State<Login> {
+  final TextEditingController email = TextEditingController();
+  final TextEditingController password = TextEditingController();
   bool _isObscured = true;
 
   bool _isLoading = false;
-  
-     Future<void> loginUser() async {
+
+  Future<void> loginUser() async {
     var url = Uri.parse('${ApiConfig.baseUrl}/login/');
 
     setState(() => _isLoading = true);
@@ -60,19 +74,24 @@ class _LoginState extends State<Login>{
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final teacherId = data['admin']['tid'];
-        final teacherName=data['admin']['username'];
+        final teacherName = data['admin']['username'];
+
+        // Remember the login on this phone (id and name only, never the password)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('teacher_id', teacherId);
+        await prefs.setString('teacher_name', teacherName?.toString() ?? '');
 
         final fcmToken = await FirebaseMessaging.instance.getToken();
-        if(fcmToken != null) {
-           try {
-      await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/devices/register-token/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'role': 'teacher', 'user_id': teacherId, 'token': fcmToken}),
-      );
-    } catch (e) {
-      debugPrint('Failed to register device token: $e');
-    }
+        if (fcmToken != null) {
+          try {
+            await http.post(
+              Uri.parse('${ApiConfig.baseUrl}/devices/register-token/'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'role': 'teacher', 'user_id': teacherId, 'token': fcmToken}),
+            );
+          } catch (e) {
+            debugPrint('Failed to register device token: $e');
+          }
         }
 
         if (mounted) {
@@ -102,7 +121,6 @@ class _LoginState extends State<Login>{
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,129 +133,126 @@ class _LoginState extends State<Login>{
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            /*  children: [
+              /*  children: [
                 const Text(
                   'Click-digitals Courses App',
                   style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-               
+
               ],*/
             ),
           ),
 
           Expanded(
             child: Center(
-            child:SingleChildScrollView(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 450),
-                // Keeps form centered on web
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                     Padding(
-    padding: const EdgeInsets.only(
-      bottom: 10.0,
-      top: 10.0,
-    ),
-    child: Transform.scale(
-      scale: 2.25, // increase logo size
-      child: Image.asset(
-        'assets/icon/cd.png',
-        height: 160,
-        width: 220,
-        fit: BoxFit.contain,
-      ),
-    ),
-  ),
-
-                    Card(
-                      color:Colors.white,
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      margin: const EdgeInsets.all(20),
-                      child: Padding(
-                        padding: const EdgeInsets.all(30.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(
-                              controller:email,
-                              decoration: const InputDecoration(labelText: 'Email'),
-                            ),
-                            const SizedBox(height: 20),
-                            TextField(
-                              controller:password,
-                              //decoration: const InputDecoration(labelText: 'Password',),
-                              obscureText: _isObscured,
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _isObscured ? Icons.visibility : Icons.visibility_off,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isObscured = !_isObscured;
-                                    });
-                                  },
-                                ),
-                              ),
-                              
-                            ),
-                            const SizedBox(height: 30),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color.fromRGBO(246, 148, 36, 1), // Dark red background
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                 onPressed: () async {
-                                      await loginUser();
-                                 },
-                                child: const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
-                              ),
-                              
-                            ),
-                            const SizedBox(height: 20),
-                            TextButton(
-                          style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (_) => const OtpVerificationScreen()),
-                            );
-                          },
-                          child: const Text('Not verified? Go to OTP Verification', style: TextStyle(color: Color(0xFF0B8081))),
+              child: SingleChildScrollView(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 450),
+                  // Keeps form centered on web
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: 10.0,
+                          top: 10.0,
                         ),
-                              
-                              
-                              const SizedBox(height: 20),
-                              GestureDetector(
-                              onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const TeacherForgotPasswordScreen()),
-                              ),
-                              child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF0B8081))),
-                              ),
-                            
-                          ],
+                        child: Transform.scale(
+                          scale: 2.25, // increase logo size
+                          child: Image.asset(
+                            'assets/icon/cd.png',
+                            height: 160,
+                            width: 220,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+
+                      Card(
+                        color: Colors.white,
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        margin: const EdgeInsets.all(20),
+                        child: Padding(
+                          padding: const EdgeInsets.all(30.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: email,
+                                decoration: const InputDecoration(labelText: 'Email'),
+                              ),
+                              const SizedBox(height: 20),
+                              TextField(
+                                controller: password,
+                                obscureText: _isObscured,
+                                decoration: InputDecoration(
+                                  labelText: 'Password',
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _isObscured ? Icons.visibility : Icons.visibility_off,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _isObscured = !_isObscured;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 30),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color.fromRGBO(246, 148, 36, 1),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  onPressed: () async {
+                                    await loginUser();
+                                  },
+                                  child: const Text('Login',
+                                      style: TextStyle(fontSize: 18, color: Colors.white)),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const OtpVerificationScreen()),
+                                  );
+                                },
+                                child: const Text('Not verified? Go to OTP Verification',
+                                    style: TextStyle(color: Color(0xFF0B8081))),
+                              ),
+                              const SizedBox(height: 20),
+                              GestureDetector(
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const TeacherForgotPasswordScreen()),
+                                ),
+                                child: const Text('Forgot password?',
+                                    style: TextStyle(color: Color(0xFF0B8081))),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          ),
         ],
-      
       ),
     );
   }

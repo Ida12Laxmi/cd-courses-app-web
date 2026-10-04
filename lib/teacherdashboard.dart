@@ -15,6 +15,7 @@ import 'app_logo.dart';
 import 'zoom_call_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'meeting_screens.dart';
+import 'group_room_service.dart';
 
 class Teacherdashboard extends StatefulWidget {
   final int teacherId;
@@ -256,6 +257,42 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
     );
   }
 
+  Widget _buildGroupRoomCard() {
+  return Card(
+    elevation: 3,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GroupRoomScreen(
+            teacherId: widget.teacherId,
+            role: 'teacher',
+            userId: widget.teacherId,
+          ),
+        ),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.groups, size: 40, color: Color(0xFF0B8081)),
+          SizedBox(height: 10),
+          Text(
+            'Class Room',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF013768),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
   Widget _buildMeetingsCard() {
   return Card(
     elevation: 3,
@@ -333,8 +370,8 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: GridView.builder(
-          // +1 for the extra "Join class" (Zoom) card at the end
-          itemCount: contentTypes.length + 1,
+          // +2 for the extra "Join class" (Zoom) and "Group Rooms" cards at the end
+          itemCount: contentTypes.length + 2,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             mainAxisSpacing: 16,
@@ -344,6 +381,9 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
           itemBuilder: (context, index) {
             if (index == contentTypes.length) {
               return _buildMeetingsCard();
+            }
+            if (index == contentTypes.length + 1) {
+              return  _buildGroupRoomCard();
             }
 
             final item = contentTypes[index];
