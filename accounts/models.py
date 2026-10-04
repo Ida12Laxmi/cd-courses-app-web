@@ -359,3 +359,15 @@ class ScheduledMeeting(models.Model):
 
     class Meta:
         ordering = ['-start_time']
+
+class GroupMessage(models.Model):
+       gmid = models.AutoField(primary_key=True)
+       teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='group_messages')
+       sender_type = models.CharField(max_length=10)
+       sender_id = models.IntegerField()
+       sender_name = models.CharField(max_length=100)
+       text = models.TextField()
+       created_at = models.DateTimeField(auto_now_add=True)
+
+       class Meta:
+           ordering = ['created_at']
