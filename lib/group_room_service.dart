@@ -82,7 +82,7 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
           height: MediaQuery.of(ctx).size.height * 0.6,
           child: ListenableBuilder(
             listenable: _svc,
-            builder: (_, __) => Column(
+            builder: (_, _) => Column(
               children: [
                 Expanded(
                   child: ListView.builder(

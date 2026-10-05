@@ -1,4 +1,8 @@
-
+// lib/room_stage.dart  (copy into BOTH the teacher and the student project)
+//
+// - nobody sharing  -> equal grid of cameras
+// - someone sharing -> the shared screen fills the stage, cameras go to a thin strip
+// - tap the expand icon (or double-tap the shared screen) for full screen with pinch-zoom
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -216,19 +220,29 @@ class _Presentation extends StatelessWidget {
             Container(color: Colors.black),
             RTCVideoView(
               renderer,
-              filterQuality: FilterQuality.high,
               objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
             ),
             Positioned(
               left: 8,
               top: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
+              right: 56,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  // second line = size of the picture that is really arriving
+                  child: ValueListenableBuilder<RTCVideoValue>(
+                    valueListenable: renderer,
+                    builder: (_, v, __) => Text(
+                      '$title\n${v.width.toInt()} x ${v.height.toInt()}',
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                  ),
                 ),
-                child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 12)),
               ),
             ),
             Positioned(
@@ -260,6 +274,13 @@ class FullScreenViewer extends StatefulWidget {
 class _FullScreenViewerState extends State<FullScreenViewer> {
   bool _landscape = false;
 
+  // pinch-zoom state (hand-rolled so the video always gets an exact, bounded size)
+  double _scale = 1;
+  double _startScale = 1;
+  Offset _offset = Offset.zero;
+  Offset _startOffset = Offset.zero;
+  Offset _startFocal = Offset.zero;
+
   @override
   void initState() {
     super.initState();
@@ -274,7 +295,11 @@ class _FullScreenViewerState extends State<FullScreenViewer> {
   }
 
   void _rotate() {
-    setState(() => _landscape = !_landscape);
+    setState(() {
+      _landscape = !_landscape;
+      _scale = 1;
+      _offset = Offset.zero;
+    });
     SystemChrome.setPreferredOrientations(
       _landscape
           ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
@@ -282,55 +307,97 @@ class _FullScreenViewerState extends State<FullScreenViewer> {
     );
   }
 
+  void _onScaleStart(ScaleStartDetails d) {
+    _startScale = _scale;
+    _startOffset = _offset;
+    _startFocal = d.focalPoint;
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails d, Size size) {
+    final s = (_startScale * d.scale).clamp(1.0, 6.0).toDouble();
+    final maxX = size.width * (s - 1) / 2;
+    final maxY = size.height * (s - 1) / 2;
+    final o = _startOffset + (d.focalPoint - _startFocal);
+    setState(() {
+      _scale = s;
+      _offset = Offset(
+        o.dx.clamp(-maxX, maxX).toDouble(),
+        o.dy.clamp(-maxY, maxY).toDouble(),
+      );
+    });
+  }
+
+  void _toggleZoom() {
+    setState(() {
+      _scale = _scale > 1 ? 1 : 2.5;
+      _offset = Offset.zero;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-  child: LayoutBuilder(
-    builder: (context, c) => InteractiveViewer(
-      minScale: 1,
-      maxScale: 6,
-      child: SizedBox(
-        width: c.maxWidth,
-        height: c.maxHeight,
-        child: RTCVideoView(
-          widget.renderer,
-          filterQuality: FilterQuality.high,
-          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-        ),
-      ),
-    ),
-  ),
-),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${widget.title}  •  pinch to zoom',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
+      body: LayoutBuilder(
+        builder: (context, c) {
+          final size = Size(c.maxWidth, c.maxHeight);
+          return Stack(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: _onScaleStart,
+                onScaleUpdate: (d) => _onScaleUpdate(d, size),
+                onDoubleTap: _toggleZoom,
+                child: SizedBox(
+                  width: size.width,
+                  height: size.height,
+                  child: ClipRect(
+                    child: Transform.translate(
+                      offset: _offset,
+                      child: Transform.scale(
+                        scale: _scale,
+                        child: RTCVideoView(
+                          widget.renderer,
+                          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+                        ),
+                      ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Rotate',
-                    icon: const Icon(Icons.screen_rotation, color: Colors.white),
-                    onPressed: _rotate,
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${widget.title}  |  pinch or double-tap to zoom',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Rotate',
+                        icon: const Icon(Icons.screen_rotation, color: Colors.white),
+                        onPressed: _rotate,
+                      ),
+                    ],
+                  ),
+                ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
