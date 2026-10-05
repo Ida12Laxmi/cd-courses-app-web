@@ -110,7 +110,7 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
         height: MediaQuery.of(ctx).size.height * 0.65,
         child: ListenableBuilder(
           listenable: Listenable.merge([_svc, _roster]),
-          builder: (_, __) {
+          builder: (_, _) {
             final inRoom = _svc.peers.values.toList();
             final inRoomIds = _svc.peers.keys.toSet();
             final notJoined = _roster.value
@@ -192,7 +192,7 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
           height: MediaQuery.of(ctx).size.height * 0.6,
           child: ListenableBuilder(
             listenable: _svc,
-            builder: (_, __) => Column(
+            builder: (_, _) => Column(
               children: [
                 Expanded(
                   child: ListView.builder(
@@ -270,7 +270,7 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
         actions: [
           ListenableBuilder(
             listenable: _svc,
-            builder: (_, __) => IconButton(
+            builder: (_, _) => IconButton(
               tooltip: 'Participants',
               onPressed: _openParticipants,
               icon: Badge(

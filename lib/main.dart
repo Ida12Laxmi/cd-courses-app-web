@@ -3,8 +3,14 @@ import 'reg.dart'; // Import the registration page
 import 'login.dart'; // Import the login page
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';// Import the OTP verification screen
+
+import 'group_room_service.dart';
+
+final navigatorKey = GlobalKey<NavigatorState>();
+
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -31,6 +37,8 @@ Future<void> _initLocalNotifications() async {
       ?.createNotificationChannel(channel);
 }
 
+
+
 Future<void> _showForegroundNotification(RemoteMessage message) async {
   final notification = message.notification;
   if (notification == null) return;
@@ -48,6 +56,18 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
     ),
   );
 }
+
+Future<void> _openRoomFromPush(RemoteMessage m) async {
+  if (m.data['type'] != 'group_call') return;
+  final prefs = await SharedPreferences.getInstance();
+  final sid = prefs.getInt('student_id');
+  final tid = prefs.getInt('teacher_id');
+  if (sid == null || tid == null) return;
+  navigatorKey.currentState?.push(MaterialPageRoute(
+    builder: (_) => GroupRoomScreen(teacherId: tid, role: 'student', userId: sid),
+  ));
+}
+
 /*void main() {
   runApp(const MyApp());
 }*/
@@ -66,6 +86,13 @@ Future<void> main() async {
     sound: true,
   );
 
+  FirebaseMessaging.onMessageOpenedApp.listen(_openRoomFromPush);
+
+  final first = await FirebaseMessaging.instance.getInitialMessage();
+if (first != null) {
+  WidgetsBinding.instance.addPostFrameCallback((_) => _openRoomFromPush(first));
+}
+
   FirebaseMessaging.onMessage.listen(_showForegroundNotification);
 
   final fcmToken = await FirebaseMessaging.instance.getToken();
@@ -82,7 +109,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      
+      navigatorKey: navigatorKey,
       theme: ThemeData(
      
        // colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

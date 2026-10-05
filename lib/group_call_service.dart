@@ -1,4 +1,4 @@
-// lib/group_call_service.dart  (TEACHER project)
+// lib/group_call_service.dart  (copy into BOTH the teacher and the student project)
 //
 // pubspec.yaml:
 //   flutter_webrtc, web_socket_channel, permission_handler, flutter_background
@@ -31,28 +31,17 @@ class GroupChatItem {
 class GroupCallService extends ChangeNotifier {
   GroupCallService(this.wsUrl);
 
-  /// e.g. ws://host/ws/group/4/?role=teacher&user_id=12
+  /// e.g. ws://host/ws/group/4/?role=student&user_id=12
   final String wsUrl;
-
-  /// Set to false when you are done debugging.
-  static const bool _debugStats = true;
-
-  /// Total upload budget (bits/s) shared between all viewers while presenting.
-  /// The call is a mesh, so every student gets its own copy of the stream.
-  static const int _totalScreenBudget = 4000000;
-  static const int _minScreenBitrate = 600000;
-  static const int _maxScreenBitrate = 2500000;
 
   WebSocketChannel? _ch;
   Future<void> _queue = Future.value(); // handle signaling messages one at a time
-  Timer? _statsTimer;
 
   String? selfId;
   MediaStream? localStream;
   MediaStream? _screenStream;
   final RTCVideoRenderer localRenderer = RTCVideoRenderer();
   final Map<String, CallPeer> peers = {};
-  final Set<String> _sharingIds = {}; // peers known to be presenting
   final List<GroupChatItem> chat = [];
 
   bool micOn = true;
@@ -71,43 +60,6 @@ class GroupCallService extends ChangeNotifier {
     ],
   };
 
-  // ---- SDP boost: make the video encoder start high instead of ~300 kbps ----
-
-  String _boostSdp(String sdp) {
-    final lines = sdp.split('\r\n');
-    final out = <String>[];
-    bool inVideo = false;
-    final fmtpDone = <String>{};
-
-    // payload types that already have an fmtp line
-    for (final l in lines) {
-      final m = RegExp(r'^a=fmtp:(\d+) ').firstMatch(l);
-      if (m != null) fmtpDone.add(m.group(1)!);
-    }
-
-    const extra =
-        'x-google-start-bitrate=1500;x-google-min-bitrate=600;x-google-max-bitrate=2500';
-
-    for (final l in lines) {
-      if (l.startsWith('m=')) inVideo = l.startsWith('m=video');
-
-      if (inVideo && l.startsWith('a=fmtp:') && !l.contains('apt=')) {
-        out.add('$l;$extra');
-        continue;
-      }
-
-      out.add(l);
-
-      if (inVideo) {
-        final r = RegExp(r'^a=rtpmap:(\d+) (VP8|VP9|H264|AV1)/').firstMatch(l);
-        if (r != null && !fmtpDone.contains(r.group(1)!)) {
-          out.add('a=fmtp:${r.group(1)} $extra');
-        }
-      }
-    }
-    return out.join('\r\n');
-  }
-
   // ---- Android foreground service (required for screen capture) ------------
 
   Future<void> _startAndroidForeground() async {
@@ -116,11 +68,24 @@ class GroupCallService extends ChangeNotifier {
       notificationText: 'You are sharing your screen in Class Room',
       notificationImportance: AndroidNotificationImportance.normal,
       notificationIcon: AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
+      // Without this, initialize() returns false when the battery-optimisation
+      // prompt is refused/ignored (common on Xiaomi), and no service is started.
+      shouldRequestBatteryOptimizationsOff: false,
+      enableWifiLock: false,
     );
     final ok = await FlutterBackground.initialize(androidConfig: cfg);
-    if (ok && !FlutterBackground.isBackgroundExecutionEnabled) {
-      await FlutterBackground.enableBackgroundExecution();
+    if (!ok) {
+      throw Exception('Could not prepare the background service for screen sharing');
     }
+    if (!FlutterBackground.isBackgroundExecutionEnabled) {
+      final started = await FlutterBackground.enableBackgroundExecution();
+      if (!started) {
+        throw Exception('Could not start the screen-sharing service');
+      }
+    }
+    // The service calls startForeground() asynchronously; capture must not
+    // begin before it has done so.
+    await Future.delayed(const Duration(milliseconds: 800));
   }
 
   Future<void> _stopAndroidForeground() async {
@@ -153,8 +118,6 @@ class GroupCallService extends ChangeNotifier {
     );
     connected = true;
     notifyListeners();
-
-    if (_debugStats) _startStats();
   }
 
   void _send(Map<String, dynamic> m) => _ch?.sink.add(jsonEncode(m));
@@ -170,44 +133,32 @@ class GroupCallService extends ChangeNotifier {
         for (final p in (m['peers'] as List)) {
           final peer = await _createPeer(p['id'], p['name']);
           final offer = await peer.pc!.createOffer();
-          final boosted = RTCSessionDescription(_boostSdp(offer.sdp!), offer.type);
-          await peer.pc!.setLocalDescription(boosted);
-          _send({'type': 'offer', 'to': peer.id, 'sdp': boosted.sdp});
+          await peer.pc!.setLocalDescription(offer);
+          _send({'type': 'offer', 'to': peer.id, 'sdp': offer.sdp});
         }
         break;
 
       case 'peer-joined':
-        // They will send me an offer. If I'm presenting, tell the room again so
-        // the newcomer knows right away (they missed the first announcement).
-        if (sharing) _send({'type': 'screen-state', 'sharing': true});
+        // They will send me an offer; nothing to do yet.
         break;
 
       case 'offer':
         final from = m['from'] as String;
         final peer = peers[from] ?? await _createPeer(from, (m['name'] ?? from) as String);
-        await peer.pc!.setRemoteDescription(
-            RTCSessionDescription(_boostSdp(m['sdp'] as String), 'offer'));
+        await peer.pc!.setRemoteDescription(RTCSessionDescription(_boostVideoBitrate(m['sdp'] as String), 'offer'));
         peer.remoteSet = true;
         await _flushIce(peer);
         final answer = await peer.pc!.createAnswer();
-        final boostedAns = RTCSessionDescription(_boostSdp(answer.sdp!), answer.type);
-        await peer.pc!.setLocalDescription(boostedAns);
-        _send({'type': 'answer', 'to': from, 'sdp': boostedAns.sdp});
-        if (sharing) {
-          _send({'type': 'screen-state', 'sharing': true});
-          await _tuneSafely(screen: true);
-        }
+        await peer.pc!.setLocalDescription(answer);
+        _send({'type': 'answer', 'to': from, 'sdp': answer.sdp});
         break;
 
       case 'answer':
         final p = peers[m['from']];
         if (p == null) break;
-        await p.pc!.setRemoteDescription(
-            RTCSessionDescription(_boostSdp(m['sdp'] as String), 'answer'));
+        await p.pc!.setRemoteDescription(RTCSessionDescription(_boostVideoBitrate(m['sdp'] as String), 'answer'));
         p.remoteSet = true;
         await _flushIce(p);
-        // The late joiner's sender is only fully ready after the answer.
-        if (sharing) await _tuneSafely(screen: true);
         break;
 
       case 'ice':
@@ -224,19 +175,10 @@ class GroupCallService extends ChangeNotifier {
 
       case 'peer-left':
         await _removePeer(m['id']);
-        // fewer viewers -> each remaining one can get more bitrate
-        if (sharing) await _tuneSafely(screen: true);
         break;
 
       case 'screen-state':
-        final sid = m['from'] as String;
-        final on = m['sharing'] == true;
-        if (on) {
-          _sharingIds.add(sid);
-        } else {
-          _sharingIds.remove(sid);
-        }
-        peers[sid]?.sharing = on;
+        peers[m['from']]?.sharing = m['sharing'] == true;
         break;
 
       case 'chat':
@@ -246,90 +188,60 @@ class GroupCallService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Adds Google's bitrate hints to every video codec of an incoming SDP.
+  /// The sender reads them from the remote description, so this lifts the low
+  /// default start bitrate (~300 kbps). With that default WebRTC shrinks the
+  /// picture in the first seconds and a static slide then stays tiny and blocky.
+  String _boostVideoBitrate(String sdp) {
+    final nl = sdp.contains('\r\n') ? '\r\n' : '\n';
+    final lines = sdp.split(nl);
+    const hints =
+        'x-google-min-bitrate=800;x-google-start-bitrate=2000;x-google-max-bitrate=4000';
+    final codec = RegExp(r'^a=rtpmap:(\d+) (VP8|VP9|H264|AV1)/90000');
+
+    // pass 1: which video payload types exist, and which already have an fmtp line
+    final videoPts = <String>{};
+    final withFmtp = <String>{};
+    var inVideo = false;
+    for (final l in lines) {
+      if (l.startsWith('m=')) inVideo = l.startsWith('m=video');
+      if (!inVideo) continue;
+      final m = codec.firstMatch(l);
+      if (m != null) videoPts.add(m.group(1)!);
+      if (l.startsWith('a=fmtp:')) {
+        withFmtp.add(l.substring(7).split(' ').first);
+      }
+    }
+
+    // pass 2: rewrite
+    final out = <String>[];
+    inVideo = false;
+    for (final l in lines) {
+      if (l.startsWith('m=')) inVideo = l.startsWith('m=video');
+      if (inVideo && l.startsWith('a=fmtp:')) {
+        final pt = l.substring(7).split(' ').first;
+        if (videoPts.contains(pt)) {
+          out.add('$l;$hints');
+          continue;
+        }
+      }
+      out.add(l);
+      if (inVideo) {
+        final m = codec.firstMatch(l);
+        if (m != null && !withFmtp.contains(m.group(1))) {
+          out.add('a=fmtp:${m.group(1)} $hints');
+        }
+      }
+    }
+    return out.join(nl);
+  }
+
   Future<void> _flushIce(CallPeer p) async {
     for (final c in p.pendingIce) {
       await p.pc!.addCandidate(c);
     }
     p.pendingIce.clear();
   }
-
-  // ---- quality tuning ---------------------------------------------------------
-
-  /// Bitrate per viewer while presenting: shared upload budget / number of viewers.
-  int get _perPeerScreenBitrate {
-    final n = peers.isEmpty ? 1 : peers.length;
-    return (_totalScreenBudget ~/ n).clamp(_minScreenBitrate, _maxScreenBitrate);
-  }
-
-  /// Never throws: a tuning failure must not break sharing or stopping.
-  Future<void> _tuneSafely({required bool screen}) async {
-    try {
-      await _tuneVideoSenders(screen: screen);
-    } catch (e) {
-      debugPrint('tune failed: $e');
-    }
-  }
-
-  /// Make WebRTC favour sharp text over smooth motion.
-  Future<void> _tuneVideoSenders({required bool screen}) async {
-    final screenBitrate = _perPeerScreenBitrate;
-
-    for (final p in peers.values) {
-      final pc = p.pc;
-      if (pc == null) continue;
-
-      final senders = await pc.getSenders();
-      for (final s in senders) {
-        if (s.track?.kind != 'video') continue;
-        try {
-          final params = s.parameters;
-          params.degradationPreference = screen
-              ? RTCDegradationPreference.MAINTAIN_RESOLUTION
-              : RTCDegradationPreference.BALANCED;
-
-          final encodings = params.encodings ?? <RTCRtpEncoding>[];
-          if (encodings.isEmpty) {
-            debugPrint('tune: no encodings for peer ${p.id}');
-          }
-          for (final e in encodings) {
-            e.maxBitrate = screen ? screenBitrate : 800000;
-            e.minBitrate = screen ? (screenBitrate ~/ 2) : null;
-            e.maxFramerate = screen ? 15 : 24;
-            e.scaleResolutionDownBy = 1.0;
-          }
-          await s.setParameters(params);
-        } catch (e) {
-          debugPrint('tune sender failed for ${p.id}: $e');
-        }
-      }
-    }
-  }
-
-  // ---- debug stats --------------------------------------------------------------
-
-  void _startStats() {
-    _statsTimer?.cancel();
-    _statsTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
-      for (final p in peers.values) {
-        try {
-          final stats = await p.pc!.getStats();
-          for (final r in stats) {
-            final v = r.values;
-            if (r.type == 'inbound-rtp' && v['kind'] == 'video') {
-              debugPrint('RX[${p.name}] ${v['frameWidth']}x${v['frameHeight']} '
-                  'fps=${v['framesPerSecond']}');
-            }
-            if (r.type == 'outbound-rtp' && v['kind'] == 'video') {
-              debugPrint('TX[${p.name}] ${v['frameWidth']}x${v['frameHeight']} '
-                  'limit=${v['qualityLimitationReason']}');
-            }
-          }
-        } catch (_) {}
-      }
-    });
-  }
-
-  // ---- peers --------------------------------------------------------------------
 
   Future<CallPeer> _createPeer(String id, String name) async {
     final peer = CallPeer(id, name);
@@ -359,21 +271,15 @@ class GroupCallService extends ChangeNotifier {
         pc.restartIce();
       }
       if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected && sharing) {
-        _send({'type': 'screen-state', 'sharing': true});
-        _tuneSafely(screen: true);
+        _tunePeerVideo(peer, screen: true);
       }
     };
 
-    peer.sharing = _sharingIds.contains(id);
     peers[id] = peer;
-
-    // a viewer joined while I'm presenting: tune everybody (budget is shared)
-    if (sharing) await _tuneSafely(screen: true);
     return peer;
   }
 
   Future<void> _removePeer(String id) async {
-    _sharingIds.remove(id);
     final p = peers.remove(id);
     if (p == null) return;
     await p.pc?.close();
@@ -415,14 +321,7 @@ class GroupCallService extends ChangeNotifier {
     }
 
     try {
-      _screenStream = await navigator.mediaDevices.getDisplayMedia({
-        'video': {
-          'width': {'ideal': 1080},
-          'height': {'ideal': 2400},
-          'frameRate': 15,
-        },
-        'audio': false,
-      });
+      _screenStream = await navigator.mediaDevices.getDisplayMedia({'video': true, 'audio': false});
     } catch (e) {
       if (_isAndroid) await _stopAndroidForeground();
       rethrow;
@@ -432,12 +331,17 @@ class GroupCallService extends ChangeNotifier {
     screenTrack.onEnded = () => stopScreenShare(); // user pressed the system "stop sharing"
 
     await _replaceVideoTrack(screenTrack);
+    for (final p in peers.values) {
+      await _tunePeerVideo(p, screen: true);
+    }
     localRenderer.srcObject = _screenStream;
     sharing = true;
-
-    // tune AFTER the screen track is on the senders; a failure must not kill the share
-    await _tuneSafely(screen: true);
-
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (!sharing) return;
+      for (final p in peers.values) {
+        await _tunePeerVideo(p, screen: true);
+      }
+    });
     _send({'type': 'screen-state', 'sharing': true});
     notifyListeners();
   }
@@ -445,18 +349,57 @@ class GroupCallService extends ChangeNotifier {
   Future<void> stopScreenShare() async {
     if (!sharing) return;
     sharing = false;
-
     final cam = localStream!.getVideoTracks().first;
     await _replaceVideoTrack(cam);
+    for (final p in peers.values) {
+      await _tunePeerVideo(p, screen: false);
+    }
     localRenderer.srcObject = localStream;
-    await _tuneSafely(screen: false);
-
     await _screenStream?.dispose();
     _screenStream = null;
     if (_isAndroid) await _stopAndroidForeground();
-
     _send({'type': 'screen-state', 'sharing': false});
     notifyListeners();
+  }
+
+  /// Screen content (text/slides) needs a high, steady bitrate and no
+  /// down-scaling; otherwise WebRTC sends a blurry picture and, because a static
+  /// slide produces few new frames, it stays blurry. Camera gets normal limits.
+  Future<void> _tunePeerVideo(CallPeer p, {required bool screen}) async {
+    try {
+      final senders = await p.pc!.getSenders();
+      for (final s in senders) {
+        if (s.track?.kind != 'video') continue;
+        final params = s.parameters;
+
+        // The important one: never trade resolution away to save bandwidth/CPU
+        // while sharing a screen (the default "balanced" mode shrinks the
+        // picture, which is what makes text unreadable).
+        params.degradationPreference = screen
+            ? RTCDegradationPreference.MAINTAIN_RESOLUTION
+            : RTCDegradationPreference.BALANCED;
+
+        final encs = params.encodings;
+        if (encs != null) {
+          for (final e in encs) {
+            if (screen) {
+              e.minBitrate = 1000000; // 1 Mbps floor
+              e.maxBitrate = 4000000; // 4 Mbps ceiling
+              e.maxFramerate = 15; // fewer frames, sharper frames
+            } else {
+              e.minBitrate = 100000;
+              e.maxBitrate = 1200000;
+              e.maxFramerate = 30;
+            }
+            e.scaleResolutionDownBy = 1.0;
+          }
+        }
+        final ok = await s.setParameters(params);
+        debugPrint('tune video screen=$screen peer=${p.id} encodings=${encs?.length} applied=$ok');
+      }
+    } catch (e) {
+      debugPrint('tune video failed: $e');
+    }
   }
 
   Future<void> _replaceVideoTrack(MediaStreamTrack track) async {
@@ -475,8 +418,6 @@ class GroupCallService extends ChangeNotifier {
 
   /// Cleanup only (no notifyListeners) so it is safe to call from dispose().
   Future<void> leave() async {
-    _statsTimer?.cancel();
-    _statsTimer = null;
     await _ch?.sink.close();
     _ch = null;
     for (final p in peers.values) {
@@ -485,7 +426,6 @@ class GroupCallService extends ChangeNotifier {
       await p.renderer.dispose();
     }
     peers.clear();
-    _sharingIds.clear();
     await _screenStream?.dispose();
     _screenStream = null;
     if (_isAndroid) await _stopAndroidForeground();
