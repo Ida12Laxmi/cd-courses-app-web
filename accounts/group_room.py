@@ -1,12 +1,15 @@
-
-
+import asyncio
+import logging
 from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.urls import re_path
 
+from .group_call_push import notify_group_call
 from .models import Student, Teacher, GroupMessage
+
+log = logging.getLogger(__name__)
 
 
 class GroupRoomConsumer(AsyncJsonWebsocketConsumer):
@@ -39,6 +42,7 @@ class GroupRoomConsumer(AsyncJsonWebsocketConsumer):
 
         peers = self.rooms.setdefault(self.teacher_id, {})
         existing = [{"id": pid, "name": info["name"]} for pid, info in peers.items() if pid != self.peer_id]
+        first_teacher_join = self.role == "teacher" and self.peer_id not in peers
         peers[self.peer_id] = {"name": self.name, "channel": self.channel_name}
 
         await self.send_json({
@@ -52,6 +56,21 @@ class GroupRoomConsumer(AsyncJsonWebsocketConsumer):
             "payload": {"type": "peer-joined", "id": self.peer_id, "name": self.name},
             "exclude": self.peer_id,
         })
+
+        if first_teacher_join:
+            # students who are somehow already in the room don't need a push
+            online_students = [
+                int(pid.split("_", 1)[1]) for pid in peers if pid.startswith("student_")
+            ]
+            self._push_task = asyncio.create_task(self.push_class_call(online_students))
+
+    async def push_class_call(self, skip_ids):
+        try:
+            await database_sync_to_async(notify_group_call)(
+                self.teacher_id, self.name, skip_ids
+            )
+        except Exception:
+            log.exception("group call push failed")
 
     async def disconnect(self, code):
         if not hasattr(self, "peer_id"):

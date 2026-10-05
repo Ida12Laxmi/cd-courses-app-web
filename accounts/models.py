@@ -276,6 +276,7 @@ class Notification(models.Model):
         ('certificate_uploaded', 'Certificate Uploaded'),
         ('timetable_uploaded', 'Timetable Uploaded'),
         ('announcement_published', 'Announcement Published'),
+        ('group_call', 'Group Call'),
     ]
     nid = models.AutoField(primary_key=True)
     teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
