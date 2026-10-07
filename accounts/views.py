@@ -340,6 +340,7 @@ def login_student(request):
             "email": student.email,
             "tid": student.teacher_id,
             "level": student.level,
+            "subject": student.subject,   
         }
     }, status=status.HTTP_200_OK)
 
@@ -392,7 +393,11 @@ def upload_content(request):
                 student=student,
                 notify_type='content_uploaded',
                 title='New Content Available',
-                message=f'New {content.content_type} content has been uploaded by your teacher.',
+               message=(
+            f'Your teacher uploaded new {content.content_type} '
+            f'"{content.title}" for {content.level} level'
+            f'{" - " + content.subject if content.subject else ""}.'
+        ),
                 related_id=content.cid
             )
         ADMIN_NOTIFY_TYPES = {
@@ -465,7 +470,7 @@ def create_quiz(request):
     serializer=QuizSerializer(data=request.data)
     if(serializer.is_valid()):
         quiz=serializer.save()
-        students = Student.objects.filter(teacher_id=quiz.teacher_id,level=quiz.level)
+        students = Student.objects.filter(teacher_id=quiz.teacher_id,level=quiz.level,subject__iexact=quiz.subject)
         print(f'QUIZ LEVEL: {quiz.level!r} | Notifying {students.count()} students: {list(students.values_list("sid", "level"))}')
 
         for student in students:
@@ -473,7 +478,12 @@ def create_quiz(request):
                 student=student,
                 notify_type='quiz_created',
                 title='New Quiz Available',
-                message=f'A new quiz "{quiz.title}" has been created by your teacher.',
+                              message=(
+                    f'A new quiz "{quiz.title}" for {quiz.level} level'
+                    f'{" - " + quiz.subject if quiz.subject else ""} '
+                    f'has been created by your teacher.'
+                ),
+
                 related_id=quiz.quid
             )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -518,6 +528,22 @@ def get_quiz_for_student(request, quiz_id):
         return Response({"error": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
 
     serializer = QuizPublicSerializer(quiz)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def student_list_quizzes(request, student_id):
+    try:
+        student = Student.objects.get(sid=student_id)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    quizzes = Quiz.objects.filter(
+        teacher_id=student.teacher_id,
+        level=student.level,
+        subject__iexact=student.subject,
+    ).order_by('-created_at')
+    serializer = QuizPublicSerializer(quizzes, many=True)
     return Response(serializer.data)
 
 @api_view(['GET'])
@@ -776,20 +802,21 @@ def delete_message(request, message_id):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def get_attendance_for_date(request,teacher_id):
-    date_str=request.GET.get('date')
+def get_attendance_for_date(request, teacher_id):
+    date_str = request.GET.get('date')
     if not date_str:
         return Response({"error": "date query param is required (YYYY-MM-DD)"}, status=status.HTTP_400_BAD_REQUEST)
 
-    students=Student.objects.filter(teacher_id=teacher_id)
-    existing={a.student_id: a for a in Attendance.objects.filter(teacher_id=teacher_id, date=date_str)}
+    students = Student.objects.filter(teacher_id=teacher_id)
+    existing = {a.student_id: a for a in Attendance.objects.filter(teacher_id=teacher_id, date=date_str)}
 
-    data=[]
+    data = []
     for s in students:
-        record=existing.get(s.sid)
+        record = existing.get(s.sid)
         data.append({
             'sid': s.sid,
             'username': s.username,
+            'subject': s.subject or '',
             'status': record.status if record else None,
             'remarks': record.remarks if record else '',
         })
@@ -1157,7 +1184,12 @@ def student_list_content(request, student_id, content_type):
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    items=CourseContent.objects.filter(teacher_id=student.teacher_id, content_type=content_type,level=student.level).order_by('-created_at')
+    items = CourseContent.objects.filter(
+    teacher_id=student.teacher_id,
+    content_type=content_type,
+    level=student.level,
+    subject__iexact=student.subject,
+).order_by('-created_at')
     serializer=ContentSerializer(items,many=True)
     return Response(serializer.data)
 
@@ -1284,11 +1316,12 @@ def student_search_content(request, student_id):
         types_to_use=searchable_types
 
 
-    items=CourseContent.objects.filter(
-        teacher_id=student.teacher_id,
-        level=student.level,
-        content_type__in=types_to_use
-    )
+    items = CourseContent.objects.filter(
+    teacher_id=student.teacher_id,
+    level=student.level,
+    subject__iexact=student.subject,
+    content_type__in=types_to_use,
+)
     if query:
         escaped=re.escape(query)
         items=items.filter(Q(title__iregex=rf'(^|\s){escaped}'))
@@ -1318,7 +1351,8 @@ def teacher_search_content(request, teacher_id):
 
     items=CourseContent.objects.filter(
         teacher_id=teacher.tid,
-        content_type__in=types_to_use
+        content_type__in=types_to_use,
+        
     )
     if query:
         escaped=re.escape(query)
@@ -1344,6 +1378,7 @@ def student_search_submissions(request,student_id,content_type):
     given = CourseContent.objects.filter(
         teacher_id=student.teacher_id,
         level=student.level,
+        subject__iexact=student.subject,
         content_type=content_type,
     )
 

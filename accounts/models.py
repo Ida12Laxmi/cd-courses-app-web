@@ -94,6 +94,7 @@ class CourseContent(models.Model):
         choices=Student.LEVEL_CHOICES,
         default='Basic',
     )
+     subject = models.CharField(max_length=100, blank=True, default='')
      description=models.TextField(blank=True, default='')
      created_at=models.DateTimeField(auto_now_add=True)
 
@@ -113,6 +114,7 @@ class Quiz(models.Model):
              default='Basic',
          )
      description = models.TextField(blank=True)
+     subject = models.CharField(max_length=100, blank=True, default='')
      created_at = models.DateTimeField(auto_now_add=True)
 
      def __str__(self):
