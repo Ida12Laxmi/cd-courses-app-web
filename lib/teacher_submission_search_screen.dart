@@ -65,9 +65,9 @@ class _TeacherSubmissionSearchScreenState extends State<TeacherSubmissionSearchS
       _hasSearched = true;
     });
 
-final uri = Uri.parse(
-  '$_baseUrl/accounts/students/${widget.studentId}/${widget.contentType}/search/',
-).replace(queryParameters: {'q': trimmed});
+    final uri = Uri.parse(
+      '$_baseUrl/accounts/students/${widget.studentId}/${widget.contentType}/search/',
+    ).replace(queryParameters: {'q': trimmed});
 
     try {
       final response = await http.get(uri);
@@ -177,12 +177,44 @@ final uri = Uri.parse(
     }
   }
 
+  // "Math • Basic" — only includes the parts that actually exist on the item.
+  String _metaLine(dynamic item) {
+    final subject = (item['subject'] ?? '').toString().trim();
+    final level = (item['level'] ?? '').toString().trim();
+    return [subject, level].where((e) => e.isNotEmpty).join(' • ');
+  }
+
+  bool _hasMetaAndDescription(dynamic item) {
+    final description = (item['description'] ?? '').toString().trim();
+    return _metaLine(item).isNotEmpty && description.isNotEmpty;
+  }
+
+  Widget _buildSubtitle(dynamic item) {
+    final meta = _metaLine(item);
+    final description = (item['description'] ?? '').toString();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (meta.isNotEmpty)
+          Text(
+            meta,
+            style: const TextStyle(
+              color: Color(0xFF0B8081),
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        if (description.isNotEmpty) Text(description),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
@@ -232,7 +264,8 @@ final uri = Uri.parse(
                 child: ListTile(
                   leading: const Icon(Icons.assignment_outlined),
                   title: Text(g['title'] ?? ''),
-                  subtitle: Text(g['description'] ?? ''),
+                  subtitle: _buildSubtitle(g),
+                  isThreeLine: _hasMetaAndDescription(g),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _openFile(g),
                 ),
@@ -252,7 +285,8 @@ final uri = Uri.parse(
                   ListTile(
                     leading: Icon(_isAssignment ? Icons.insert_drive_file : Icons.folder_special),
                     title: Text(s['title'] ?? ''),
-                    subtitle: Text(s['description'] ?? ''),
+                    subtitle: _buildSubtitle(s),
+                    isThreeLine: _hasMetaAndDescription(s),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _openFile(s),
                   ),

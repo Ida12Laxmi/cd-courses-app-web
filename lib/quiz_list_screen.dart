@@ -56,7 +56,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
     }
   }
 
-   Future<void> _editQuiz(dynamic quiz) async {
+  Future<void> _editQuiz(dynamic quiz) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -129,13 +129,10 @@ class _QuizListScreenState extends State<QuizListScreen> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        
         title: Row(
           children: [
             const AppLogo(radius: 18),
@@ -199,6 +196,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
         final questionCount = (quiz['questions'] as List?)?.length ?? 0;
         final String level = quiz['level']?.toString() ?? 'Basic';
         final String description = (quiz['description'] ?? '').toString();
+        final String subject = (quiz['subject'] ?? '').toString();
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
@@ -211,6 +209,18 @@ class _QuizListScreenState extends State<QuizListScreen> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (subject.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          subject,
+                          style: const TextStyle(
+                            color: Color(0xFF0B8081),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     Text(description.isEmpty ? 'No description' : description),
                     Text('$questionCount question(s)'),
                     const SizedBox(height: 4),
@@ -254,8 +264,6 @@ class _QuizListScreenState extends State<QuizListScreen> {
                     icon: const Icon(Icons.bar_chart, size: 15),
                     label: const Text('Results'),
                   ),
-                  
-
                 ],
               ),
               const Divider(height: 1),
@@ -306,7 +314,10 @@ class _LevelChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _color, width: 1),
       ),
-      child: Text(level, style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(
+        level,
+        style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

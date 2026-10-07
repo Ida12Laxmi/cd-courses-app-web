@@ -237,7 +237,7 @@ class _Presentation extends StatelessWidget {
                   // second line = size of the picture that is really arriving
                   child: ValueListenableBuilder<RTCVideoValue>(
                     valueListenable: renderer,
-                    builder: (_, v, __) => Text(
+                    builder: (_, v, _) => Text(
                       '$title\n${v.width.toInt()} x ${v.height.toInt()}',
                       style: const TextStyle(color: Colors.white, fontSize: 11),
                     ),

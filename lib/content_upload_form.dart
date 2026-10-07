@@ -31,6 +31,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
   static const List<String> _levels = ['Basic', 'Intermediate', 'Advance'];
 
   final TextEditingController titleController = TextEditingController();
+  final TextEditingController subjectController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController videoLinkController = TextEditingController();
 
@@ -47,6 +48,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     if (_isEditing) {
       final item = widget.existingItem;
       titleController.text = item['title']?.toString() ?? '';
+      subjectController.text = item['subject']?.toString() ?? '';
       descriptionController.text = item['description']?.toString() ?? '';
 
       final existingLevel = item['level']?.toString();
@@ -112,6 +114,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     request.fields['content_type'] = widget.contentType;
     request.fields['title'] = titleController.text;
     request.fields['description'] = descriptionController.text;
+    request.fields['subject'] = subjectController.text;
     request.fields['level'] = _selectedLevel;
 
     if (widget.contentType == 'video' && _useLink) {
@@ -200,6 +203,11 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
               onChanged: (value) {
                 if (value != null) setState(() => _selectedLevel = value);
               },
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: subjectController,
+              decoration: const InputDecoration(labelText: 'Subject', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 15),
             TextField(

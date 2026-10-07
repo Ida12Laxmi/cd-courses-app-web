@@ -192,14 +192,13 @@ class _ContentListScreenState extends State<ContentListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-       
-title: Row(
-  children: [
-    const AppLogo(radius: 18),
-    const SizedBox(width: 10),
-    Expanded(child: Text(widget.title, overflow: TextOverflow.ellipsis)),
-  ],
-),
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(widget.title, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
@@ -251,7 +250,11 @@ title: Row(
       return ListView(
         children: const [
           SizedBox(height: 100),
-          Center(child: Text('Nothing uploaded yet. Tap + to add.',style: TextStyle(color: Color(0xFF013768)),),
+          Center(
+            child: Text(
+              'Nothing uploaded yet. Tap + to add.',
+              style: TextStyle(color: Color(0xFF013768)),
+            ),
           ),
         ],
       );
@@ -266,6 +269,7 @@ title: Row(
             item['video_link'] != null && item['video_link'].toString().isNotEmpty;
         final String level = item['level']?.toString() ?? 'Basic';
         final String description = item['description']?.toString() ?? '';
+        final String subject = item['subject']?.toString() ?? '';
 
         return Card(
           color: Colors.white,
@@ -274,20 +278,47 @@ title: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ListTile(
-                textColor: Color(0xFF0B8081),
-                leading: Icon(isVideoLink ? Icons.link : Icons.insert_drive_file, color:const Color(0xFF0B8081)),
-                title: Text(item['title'] ?? '',style: const TextStyle(color: Color(0xFF013768), fontWeight: FontWeight.bold),),
+                textColor: const Color(0xFF0B8081),
+                leading: Icon(
+                  isVideoLink ? Icons.link : Icons.insert_drive_file,
+                  color: const Color(0xFF0B8081),
+                ),
+                title: Text(
+                  item['title'] ?? '',
+                  style: const TextStyle(
+                    color: Color(0xFF013768),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (subject.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          subject,
+                          style: const TextStyle(
+                            color: Color(0xFF0B8081),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     if (description.isNotEmpty)
-                      Text(description, style: const TextStyle(color: Color(0xFF013768))),
+                      Text(
+                        description,
+                        style: const TextStyle(color: Color(0xFF013768)),
+                      ),
                     const SizedBox(height: 4),
                     _LevelChip(level: level),
                   ],
                 ),
-                isThreeLine: description.isNotEmpty,
-                trailing: Icon(Icons.chevron_right,color: const Color(0xFF0B8081),),
+                isThreeLine: description.isNotEmpty || subject.isNotEmpty,
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: Color(0xFF0B8081),
+                ),
                 onTap: () => _openItem(item),
               ),
               const Divider(height: 1),
@@ -338,7 +369,10 @@ class _LevelChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _color, width: 1),
       ),
-      child: Text(level, style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(
+        level,
+        style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

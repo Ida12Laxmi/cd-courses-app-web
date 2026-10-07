@@ -23,6 +23,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
   static const List<String> _levels = ['Basic', 'Intermediate', 'Advance'];
 
   final TextEditingController titleController = TextEditingController();
+  final TextEditingController subjectController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   String _selectedLevel = 'Basic';
   bool _isLoading = false;
@@ -34,6 +35,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
     super.initState();
     if (_isEditing) {
       titleController.text = widget.existingQuiz['title']?.toString() ?? '';
+      subjectController.text = widget.existingQuiz['subject']?.toString() ?? '';
       descriptionController.text = widget.existingQuiz['description']?.toString() ?? '';
 
       final existingLevel = widget.existingQuiz['level']?.toString();
@@ -41,6 +43,14 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
         _selectedLevel = existingLevel;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    subjectController.dispose();
+    descriptionController.dispose();
+    super.dispose();
   }
 
   dynamic get _existingId => widget.existingQuiz?['quid'];
@@ -73,6 +83,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               headers: {'Content-Type': 'application/json; charset=UTF-8'},
               body: jsonEncode({
                 'title': titleController.text.trim(),
+                'subject': subjectController.text.trim(),
                 'description': descriptionController.text.trim(),
                 'level': _selectedLevel,
               }),
@@ -83,6 +94,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               body: jsonEncode({
                 'teacher': widget.teacherId,
                 'title': titleController.text.trim(),
+                'subject': subjectController.text.trim(),
                 'description': descriptionController.text.trim(),
                 'level': _selectedLevel,
               }),
@@ -149,20 +161,18 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-      
-       // title: Text(_isEditing ? 'Edit Quiz' : 'Create Quiz'),
-       title: Row(
-  children: [
-    const AppLogo(radius: 18),
-    const SizedBox(width: 10),
-    Expanded(
-      child: Text(
-        _isEditing ? 'Edit Quiz' : 'Create Quiz',
-        overflow: TextOverflow.ellipsis,
-      ),
-    ),
-  ],
-),
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _isEditing ? 'Edit Quiz' : 'Create Quiz',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
@@ -174,6 +184,11 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
             TextField(
               controller: titleController,
               decoration: const InputDecoration(labelText: 'Quiz Title', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: subjectController,
+              decoration: const InputDecoration(labelText: 'Subject', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 15),
             DropdownButtonFormField<String>(

@@ -22,6 +22,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // sid -> status ('present' | 'absent' | 'late')
   final Map<int, String> _statusMap = {};
 
+  // Subject filter: key = lowercase/trimmed subject ('' = no subject), value = label shown on chip
+  Map<String, String> _subjects = {};
+  String? _selectedSubject; // null until the teacher picks one
+
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
@@ -36,6 +40,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String get _dateStr =>
       '${_selectedDate.year.toString().padLeft(4, '0')}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
+  String _subjectKey(dynamic student) =>
+      (student['subject'] ?? '').toString().trim().toLowerCase();
+
+  // Students of the currently selected subject only.
+  List<dynamic> get _visibleStudents {
+    if (_selectedSubject == null) return [];
+    return _students.where((s) => _subjectKey(s) == _selectedSubject).toList();
+  }
+
+  int _countFor(String key) => _students.where((s) => _subjectKey(s) == key).length;
+
   Future<void> _fetchAttendance() async {
     setState(() {
       _isLoading = true;
@@ -48,11 +63,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List;
         _statusMap.clear();
+
+        final found = <String, String>{};
         for (var s in data) {
           _statusMap[s['sid']] = s['status'] ?? 'present'; // default to present if unmarked
+          final raw = (s['subject'] ?? '').toString().trim();
+          found.putIfAbsent(raw.toLowerCase(), () => raw.isEmpty ? 'No subject' : raw);
         }
+
+        // sort subjects alphabetically by label
+        final keys = found.keys.toList()
+          ..sort((a, b) => found[a]!.toLowerCase().compareTo(found[b]!.toLowerCase()));
+        final sorted = {for (final k in keys) k: found[k]!};
+
+        // keep the previous choice if it still exists; auto-pick when there is only one subject
+        String? selected = _selectedSubject;
+        if (selected != null && !sorted.containsKey(selected)) selected = null;
+        if (selected == null && sorted.length == 1) selected = sorted.keys.first;
+
         setState(() {
           _students = data;
+          _subjects = sorted;
+          _selectedSubject = selected;
           _isLoading = false;
         });
       } else {
@@ -83,9 +115,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _saveAttendance() async {
+    if (_selectedSubject == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a subject first')),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
+    // Only save the students of the selected subject.
+    final visibleIds = _visibleStudents.map((s) => s['sid'] as int).toSet();
     final records = _statusMap.entries
+        .where((e) => visibleIds.contains(e.key))
         .map((e) => {'student': e.key, 'status': e.value})
         .toList();
 
@@ -138,11 +180,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool showSave = !_isLoading &&
+        _error == null &&
+        _selectedSubject != null &&
+        _visibleStudents.isNotEmpty;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
-      
         title: Row(
           children: [
             const AppLogo(radius: 18),
@@ -200,12 +246,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
             ),
           ),
+          if (!_isLoading && _error == null && _students.isNotEmpty) _buildSubjectSelector(),
           Expanded(child: _buildBody()),
         ],
       ),
-      bottomNavigationBar: _isLoading || _error != null
-          ? null
-          : SafeArea(
+      bottomNavigationBar: showSave
+          ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: SizedBox(
@@ -220,7 +266,47 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ),
                 ),
               ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildSubjectSelector() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select subject',
+            style: TextStyle(color: Color(0xFF013768), fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _subjects.entries.map((e) {
+                final isSelected = _selectedSubject == e.key;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text('${e.value} (${_countFor(e.key)})'),
+                    selected: isSelected,
+                    selectedColor: const Color(0xFF013768),
+                    checkmarkColor: Colors.white,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : const Color(0xFF013768),
+                    ),
+                    onSelected: (_) => setState(() => _selectedSubject = e.key),
+                  ),
+                );
+              }).toList(),
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -249,11 +335,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       );
     }
 
+    if (_selectedSubject == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'Select a subject above to take attendance.',
+            style: TextStyle(color: Color(0xFF013768)),
+          ),
+        ),
+      );
+    }
+
+    final visible = _visibleStudents;
+
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: _students.length,
+      itemCount: visible.length,
       itemBuilder: (context, index) {
-        final student = _students[index];
+        final student = visible[index];
         final sid = student['sid'] as int;
         final currentStatus = _statusMap[sid] ?? 'present';
 
