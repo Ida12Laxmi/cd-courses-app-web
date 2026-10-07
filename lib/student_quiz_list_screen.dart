@@ -9,12 +9,14 @@ class StudentQuizListScreen extends StatefulWidget {
   final int studentId;
   final int teacherId;
   final String studentLevel; // 'Basic' | 'Intermediate' | 'Advance'
+  final String studentSubject; // student's registered subject
   final VoidCallback? onBack;
   const StudentQuizListScreen({
     super.key,
     required this.studentId,
     required this.teacherId,
     required this.studentLevel,
+    this.studentSubject = '',
     this.onBack,
   });
 
@@ -43,23 +45,38 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
       _error = null;
     });
 
-    final url = Uri.parse('$_baseUrl/accounts/quiz/teacher/${widget.teacherId}/');
+    // The backend already filters by teacher, level and subject for this student.
+    final url = Uri.parse(
+      '$_baseUrl/accounts/quiz/student/${widget.studentId}/',
+    );
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final all = jsonDecode(response.body) as List;
-        final filtered = all.where((q) => q['level'] == widget.studentLevel).toList();
+
+        // Extra client-side filter by the student's subject (case-insensitive).
+        // If no subject was passed in, keep everything the backend returned.
+        final mySubject = widget.studentSubject.trim().toLowerCase();
+        final quizzes = mySubject.isEmpty
+            ? all
+            : all
+                .where((q) =>
+                    (q['subject'] ?? '').toString().trim().toLowerCase() ==
+                    mySubject)
+                .toList();
+
         setState(() {
-          _quizzes = filtered;
+          _quizzes = quizzes;
           _isLoading = false;
         });
         // fire-and-forget: check which of these the student already completed
-        for (final quiz in filtered) {
+        for (final quiz in quizzes) {
           _checkMyResult(quiz['quid']);
         }
       } else {
+        debugPrint('Quiz list failed: ${response.statusCode} ${response.body}');
         setState(() {
-          _error = 'Failed to load quizzes: ${response.body}';
+          _error = 'Failed to load quizzes (error ${response.statusCode}). Please try again.';
           _isLoading = false;
         });
       }
@@ -140,11 +157,11 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         leading: widget.onBack != null
-      ? IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
-        )
-      : null,
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: widget.onBack,
+              )
+            : null,
       ),
       body: RefreshIndicator(onRefresh: _fetchQuizzes, child: _buildBody()),
     );
@@ -170,7 +187,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
       return ListView(
         children: const [
           SizedBox(height: 100),
-          Center(child: Text('No quizzes available for your level yet.')),
+          Center(child: Text('No quizzes available for your level and subject yet.')),
         ],
       );
     }
@@ -183,6 +200,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
         final quizId = quiz['quid'];
         final questionCount = (quiz['questions'] as List?)?.length ?? 0;
         final String description = (quiz['description'] ?? '').toString();
+        final String subject = (quiz['subject'] ?? '').toString();
         final completed = _myResults.containsKey(quizId);
 
         return Card(
@@ -196,6 +214,15 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (subject.isNotEmpty)
+                  Text(
+                    subject,
+                    style: const TextStyle(
+                      color: Color(0xFF0B8081),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
                 Text(description.isEmpty ? 'No description' : description),
                 Text('$questionCount question(s)'),
               ],
