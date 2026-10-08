@@ -29,9 +29,12 @@ class GroupRoomScreen extends StatefulWidget {
 }
 
 class _GroupRoomScreenState extends State<GroupRoomScreen> {
+  static const String _allKey = '__all__';
+
   late final GroupCallService _svc;
   final ValueNotifier<List<dynamic>> _roster = ValueNotifier([]); // all students of this teacher
   bool _ready = false;
+  bool _inviteSheetShown = false; // auto-open the invite sheet only once
   String? _error;
 
   @override
@@ -54,7 +57,16 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
     }
     try {
       await _svc.join();
-      if (mounted) setState(() => _ready = true);
+      if (mounted) {
+        setState(() => _ready = true);
+        // Once the teacher is in the room, ask which subject to invite.
+        if (!_inviteSheetShown) {
+          _inviteSheetShown = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openInviteSheet();
+          });
+        }
+      }
     } catch (e) {
       if (mounted) setState(() => _error = 'Could not join: $e');
     }
@@ -97,6 +109,165 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
         );
       }
     }
+  }
+
+  // ---- invite by subject --------------------------------------------------
+
+  String _subjectKeyOf(dynamic student) =>
+      (student['subject'] ?? '').toString().trim().toLowerCase();
+
+  // lowercase key -> label (original spelling), sorted A-Z; blank subjects are skipped
+  Map<String, String> _subjectChoices() {
+    final found = <String, String>{};
+    for (final s in _roster.value) {
+      final raw = (s['subject'] ?? '').toString().trim();
+      if (raw.isEmpty) continue;
+      found.putIfAbsent(raw.toLowerCase(), () => raw);
+    }
+    final keys = found.keys.toList()
+      ..sort((a, b) => found[a]!.toLowerCase().compareTo(found[b]!.toLowerCase()));
+    return {for (final k in keys) k: found[k]!};
+  }
+
+  int _studentsIn(String key) => key == _allKey
+      ? _roster.value.length
+      : _roster.value.where((s) => _subjectKeyOf(s) == key).length;
+
+  /// Sends the invitation notification. Empty [subject] = all students.
+  Future<bool> _sendInvite(String subject) async {
+    try {
+      final r = await http.post(
+        Uri.parse('${ApiConfig.mediaBaseUrl}/accounts/group-room/invite/'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode({'teacher': widget.teacherId, 'subject': subject}),
+      );
+      if (!mounted) return false;
+      if (r.statusCode == 200) {
+        final data = jsonDecode(r.body);
+        final msg = data['message']?.toString() ??
+            'Invitation sent to ${data['invited'] ?? 0} student(s)';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        return true;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send invite (${r.statusCode})')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not connect to server')),
+        );
+      }
+    }
+    return false;
+  }
+
+  void _openInviteSheet() {
+    String? selectedKey; // null until the teacher chooses
+    bool sending = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: ValueListenableBuilder<List<dynamic>>(
+            valueListenable: _roster,
+            builder: (_, __, ___) {
+              final subjects = _subjectChoices();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Invite students to this class',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Choose a subject. Only students of that subject get the invitation.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_roster.value.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('No students added yet.'),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final e in subjects.entries)
+                          ChoiceChip(
+                            label: Text('${e.value} (${_studentsIn(e.key)})'),
+                            selected: selectedKey == e.key,
+                            selectedColor: const Color(0xFF013768),
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: selectedKey == e.key ? Colors.white : const Color(0xFF013768),
+                            ),
+                            onSelected: (_) => setSheetState(() => selectedKey = e.key),
+                          ),
+                        ChoiceChip(
+                          label: Text('All students (${_studentsIn(_allKey)})'),
+                          selected: selectedKey == _allKey,
+                          selectedColor: const Color(0xFF013768),
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: selectedKey == _allKey ? Colors.white : const Color(0xFF013768),
+                          ),
+                          onSelected: (_) => setSheetState(() => selectedKey = _allKey),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: sending ? null : () => Navigator.pop(ctx),
+                          child: const Text('Skip'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: (selectedKey == null || sending)
+                              ? null
+                              : () async {
+                                  setSheetState(() => sending = true);
+                                  final subject =
+                                      selectedKey == _allKey ? '' : subjects[selectedKey]!;
+                                  final ok = await _sendInvite(subject);
+                                  if (ok) {
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                  } else if (ctx.mounted) {
+                                    setSheetState(() => sending = false);
+                                  }
+                                },
+                          icon: sending
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.send),
+                          label: const Text('Send invite'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   // ---- participants -------------------------------------------------------
@@ -169,7 +340,11 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
                       child: const Icon(Icons.person_outline),
                     ),
                     title: Text(s['username']?.toString() ?? ''),
-                    subtitle: Text(s['level']?.toString() ?? ''),
+                    subtitle: Text(
+                      [s['subject'], s['level']]
+                          .where((e) => e != null && e.toString().trim().isNotEmpty)
+                          .join(' • '),
+                    ),
                   ),
               ],
             );
@@ -268,6 +443,11 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Invite students by subject',
+            icon: const Icon(Icons.campaign),
+            onPressed: _openInviteSheet,
+          ),
           ListenableBuilder(
             listenable: _svc,
             builder: (_, _) => IconButton(

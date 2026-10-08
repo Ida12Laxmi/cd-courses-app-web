@@ -154,7 +154,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-       title: Row(
+        title: Row(
           children: [
             const AppLogo(radius: 18),
             const SizedBox(width: 10),
@@ -163,7 +163,6 @@ class _StudentListScreenState extends State<StudentListScreen> {
         ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-     
         automaticallyImplyLeading: false,
       ),
       body: RefreshIndicator(onRefresh: _fetchStudents, child: _buildBody()),
@@ -211,6 +210,10 @@ class _StudentListScreenState extends State<StudentListScreen> {
       itemBuilder: (context, index) {
         final student = _students[index];
         final level = student['level']?.toString() ?? 'Basic';
+        final String subject = (student['subject'] ?? '').toString().trim();
+        final String contact = [student['email'], student['phone']]
+            .where((e) => e != null && e.toString().isNotEmpty)
+            .join(' • ');
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
@@ -220,11 +223,22 @@ class _StudentListScreenState extends State<StudentListScreen> {
               ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
                 title: Text(student['username'] ?? ''),
-                subtitle: Text(
-                  [student['email'], student['phone']]
-                      .where((e) => e != null && e.toString().isNotEmpty)
-                      .join(' • '),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (subject.isNotEmpty)
+                      Text(
+                        subject,
+                        style: const TextStyle(
+                          color: Color(0xFF0B8081),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    if (contact.isNotEmpty) Text(contact),
+                  ],
                 ),
+                isThreeLine: subject.isNotEmpty && contact.isNotEmpty,
                 trailing: Chip(
                   label: Text(level, style: const TextStyle(color: Colors.white, fontSize: 12)),
                   backgroundColor: _levelColor(level),
