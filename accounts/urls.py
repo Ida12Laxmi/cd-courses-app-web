@@ -150,4 +150,6 @@ urlpatterns = [
    path('admin_notifications/', views.admin_notifications, name='admin_notifications'),
    path('mark_all_read_admin/', views.mark_all_read_admin, name='mark_all_read_admin'),
 
+   path('group-room/invite/', views.send_group_room_invite, name='send_group_room_invite'),
+
 ]

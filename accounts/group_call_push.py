@@ -9,7 +9,9 @@ from .models import DeviceToken, Notification, Student
 
 log = logging.getLogger(__name__)
 
-# teacher_id -> time of the last push, so reopening the room doesn't spam students
+# (teacher_id, subject) -> time of the last push, so tapping "Send invite" twice
+# (or reopening the room) doesn't spam students. Inviting a *different* subject
+# is not blocked.
 _last_sent = {}
 COOLDOWN_SECONDS = 120
 
@@ -52,21 +54,36 @@ def _send_push(tokens, title, body, data):
     return resp.success_count
 
 
-def notify_group_call(teacher_id, teacher_name, skip_student_ids=()):
-    """Synchronous. Call it through database_sync_to_async / a thread."""
+def notify_group_call(teacher_id, teacher_name, skip_student_ids=(), subject=""):
+    """Synchronous. Call it through database_sync_to_async / a thread.
+
+    subject = ""      -> invite all of the teacher's students
+    subject = "Math"  -> invite only students whose subject is Math (case-insensitive)
+
+    Returns {"invited": <students notified>, "pushed": <phone pushes delivered>,
+             "cooldown": <True if skipped because an identical invite was just sent>}
+    """
+    subject = (subject or "").strip()
+
+    key = (teacher_id, subject.lower())
     now = time.time()
-    if now - _last_sent.get(teacher_id, 0) < COOLDOWN_SECONDS:
-        return 0
-    _last_sent[teacher_id] = now
+    if now - _last_sent.get(key, 0) < COOLDOWN_SECONDS:
+        return {"invited": 0, "pushed": 0, "cooldown": True}
+    _last_sent[key] = now
 
-    students = list(
-        Student.objects.filter(teacher_id=teacher_id).exclude(pk__in=list(skip_student_ids))
-    )
+    qs = Student.objects.filter(teacher_id=teacher_id).exclude(pk__in=list(skip_student_ids))
+    if subject:
+        qs = qs.filter(subject__iexact=subject)
+    students = list(qs)
     if not students:
-        return 0
+        return {"invited": 0, "pushed": 0, "cooldown": False}
 
-    title = "Class Room is live"
-    body = f"{teacher_name or 'Your teacher'} has started the class room. Tap to join."
+    subject_text = f" ({subject})" if subject else ""
+    title = f"Class Room is live{subject_text}"
+    body = (
+        f"{teacher_name or 'Your teacher'} has started the "
+        f"{subject + ' ' if subject else ''}class room. Tap to join."
+    )
 
     # 1) shows up in the student's notification list
     Notification.objects.bulk_create([
@@ -87,7 +104,8 @@ def notify_group_call(teacher_id, teacher_name, skip_student_ids=()):
         DeviceToken.objects.filter(role="student", user_id__in=[s.sid for s in students])
         .values_list("device_token", flat=True)
     )
-    return _send_push(
+    pushed = _send_push(
         tokens, title, body,
-        {"type": "group_call", "teacher_id": str(teacher_id)},
+        {"type": "group_call", "teacher_id": str(teacher_id), "subject": subject},
     )
+    return {"invited": len(students), "pushed": pushed, "cooldown": False}

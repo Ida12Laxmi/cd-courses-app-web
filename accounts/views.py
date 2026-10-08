@@ -22,6 +22,7 @@ import random, hashlib,hmac,base64,uuid,os
 from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
+from .group_call_push import notify_group_call
 
 load_dotenv()
 
@@ -2050,3 +2051,33 @@ def mark_all_read_admin(request):
     Notification.objects.filter(recipient='admin', is_read=False).update(is_read=True)
     return Response({'status': 'all marked read'}, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_group_room_invite(request):
+    """
+    Body: {"teacher": 5, "subject": "Math"}
+    - subject given  -> only that teacher's students with that subject are invited
+    - subject empty  -> all of that teacher's students are invited
+    Sends the in-app notification AND the phone push through notify_group_call.
+    """
+    teacher_id = request.data.get('teacher')
+    subject = (request.data.get('subject') or '').strip()
+ 
+    if not teacher_id:
+        return Response({"error": "teacher is required"}, status=status.HTTP_400_BAD_REQUEST)
+ 
+    try:
+        teacher = Teacher.objects.get(tid=teacher_id)
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+ 
+    result = notify_group_call(teacher.tid, teacher.username, subject=subject)
+ 
+    if result["cooldown"]:
+        message = "Invitation was already sent a moment ago."
+    elif result["invited"] == 0:
+        message = "No students found for this subject."
+    else:
+        message = f"Invitation sent to {result['invited']} student(s)"
+ 
+    return Response({"message": message, **result}, status=status.HTTP_200_OK)
