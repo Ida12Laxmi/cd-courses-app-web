@@ -699,6 +699,12 @@ def get_or_create_conversation(request):
         "messages": MessageSerializer(messages, many=True).data
     }, status=status.HTTP_200_OK)
 
+def _student_details(student):
+    """'Basic level - Math' (parts that are empty are left out)."""
+    level_text = f'{student.level} level' if student.level else ''
+    subject_text = (student.subject or '').strip()
+    return ' - '.join(x for x in [level_text, subject_text] if x)
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def send_message(request):
@@ -722,11 +728,15 @@ def send_message(request):
         if sender_type == 'teacher':
             try:
                 student = Student.objects.get(sid=conversation.student_id)
+                details = _student_details(student)
                 notify_student(
                     student=student,
                     notify_type='new_message',
                     title='New Message from Teacher',
-                    message='You have a new message from your teacher.',
+                    message=(
+                        'You have a new message from your teacher'
+                        f'{" for " + details if details else ""}.'
+                    ),
                     related_id=message.message_id
                 )
             except Student.DoesNotExist:
@@ -736,12 +746,16 @@ def send_message(request):
             try:
                 teacher = Teacher.objects.get(tid=conversation.teacher_id)
                 student = Student.objects.get(sid=conversation.student_id)
-                student_name = getattr(student, 'name', None) or 'A student'
+                details = _student_details(student)
+               # student_name = getattr(student, 'name', None) or 'A student'
                 notify_teacher(
                     teacher=teacher,
                     notify_type='new_message',
                     title='New Message from Student',
-                    message=f'{student_name} sent you a new message.',
+                    message=(
+                        f'{student.username or "A student"} sent you a new message'
+                        f'{" (" + details + ")" if details else ""}.'
+                    ),
                     related_id=message.message_id
                 )
             except (Teacher.DoesNotExist, Student.DoesNotExist):
