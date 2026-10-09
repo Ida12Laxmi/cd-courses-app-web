@@ -161,7 +161,7 @@ class _StudentProjectsScreenState extends State<StudentProjectsScreen> {
 ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         actions: [
         IconButton(icon: const Icon(Icons.search),
         tooltip: 'Search',

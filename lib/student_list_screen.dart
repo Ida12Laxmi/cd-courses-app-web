@@ -163,7 +163,7 @@ class _StudentListScreenState extends State<StudentListScreen> {
         ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: RefreshIndicator(onRefresh: _fetchStudents, child: _buildBody()),
       floatingActionButton: FloatingActionButton(

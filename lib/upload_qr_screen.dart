@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
@@ -18,7 +17,8 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
   static const String _baseUrl = ApiConfig.baseUrl;
   static const String _mediaBaseUrl = ApiConfig.mediaBaseUrl;
 
-  File? _qrFile;
+  // Picked image kept in memory (bytes) so it works on web and mobile.
+  PlatformFile? _qrFile;
   String? _existingQrUrl;
   bool _isLoading = true;
   bool _isUploading = false;
@@ -36,26 +36,30 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() => _existingQrUrl = data['payment_qr_file']);
+        if (mounted) setState(() => _existingQrUrl = data['payment_qr_file']);
       } else {
-        setState(() => _existingQrUrl = null);
+        if (mounted) setState(() => _existingQrUrl = null);
       }
     } catch (e) {
-      setState(() => _existingQrUrl = null);
+      if (mounted) setState(() => _existingQrUrl = null);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _pickQr() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result != null && result.files.single.path != null) {
-      setState(() => _qrFile = File(result.files.single.path!));
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true, // load bytes: required on web, fine for small images
+    );
+    if (result != null && result.files.single.bytes != null) {
+      setState(() => _qrFile = result.files.single);
     }
   }
 
   Future<void> _uploadQr() async {
-    if (_qrFile == null) {
+    final file = _qrFile;
+    if (file == null || file.bytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a QR image first')),
       );
@@ -65,7 +69,9 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
     setState(() => _isUploading = true);
     final url = Uri.parse('$_baseUrl/teacher/payment-qr/upload/${widget.teacherId}/');
     final request = http.MultipartRequest('POST', url);
-    request.files.add(await http.MultipartFile.fromPath('payment_qr_file', _qrFile!.path));
+    request.files.add(
+      http.MultipartFile.fromBytes('payment_qr_file', file.bytes!, filename: file.name),
+    );
 
     try {
       final streamed = await request.send();
@@ -86,7 +92,7 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not connect to server')),
+          SnackBar(content: Text('Could not upload: $e')),
         );
       }
     } finally {
@@ -98,7 +104,7 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-         title: Row(
+        title: Row(
           children: [
             const AppLogo(radius: 18),
             const SizedBox(width: 10),
@@ -107,8 +113,7 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
         ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-      
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -131,11 +136,11 @@ class _UploadQrScreenState extends State<UploadQrScreen> {
                       border: Border.all(color: Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: _qrFile != null
+                    child: _qrFile?.bytes != null
                         // A new image was just picked — preview it before uploading
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.file(_qrFile!, fit: BoxFit.contain),
+                            child: Image.memory(_qrFile!.bytes!, fit: BoxFit.contain),
                           )
                         : (_existingQrUrl != null
                             // Show the QR already saved on the server

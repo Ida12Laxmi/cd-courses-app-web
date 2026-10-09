@@ -201,7 +201,7 @@ class _ContentListScreenState extends State<ContentListScreen> {
         ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: RefreshIndicator(
         onRefresh: _fetchContent,

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
@@ -36,7 +36,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
   final TextEditingController videoLinkController = TextEditingController();
 
   String _selectedLevel = 'Basic';
-  File? _pickedFile;
+  PlatformFile? _pickedFile; // works on web (bytes) and mobile (path)
   bool _isLoading = false;
   bool _useLink = false;
 
@@ -64,6 +64,15 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     }
   }
 
+  @override
+  void dispose() {
+    titleController.dispose();
+    subjectController.dispose();
+    descriptionController.dispose();
+    videoLinkController.dispose();
+    super.dispose();
+  }
+
   // Adjust this if your CourseContent primary key field is named
   // something other than 'id' (e.g. 'cid').
   dynamic get _existingId =>
@@ -80,12 +89,26 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     final result = await FilePicker.platform.pickFiles(
       type: type,
       allowedExtensions: type == FileType.custom ? ['pdf'] : null,
+      withData: kIsWeb, // bytes are required on web (no file paths there)
     );
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        _pickedFile = File(result.files.single.path!);
-      });
+    if (result != null) {
+      setState(() => _pickedFile = result.files.single);
     }
+  }
+
+  /// Builds the multipart file part for both web (bytes) and mobile (path).
+  Future<http.MultipartFile> _buildFilePart(PlatformFile f) async {
+    if (kIsWeb) {
+      final bytes = f.bytes;
+      if (bytes == null) {
+        throw Exception('File data is missing. Please pick the file again.');
+      }
+      return http.MultipartFile.fromBytes('file', bytes, filename: f.name);
+    }
+    if (f.path == null) {
+      throw Exception('File path is missing. Please pick the file again.');
+    }
+    return http.MultipartFile.fromPath('file', f.path!, filename: f.name);
   }
 
   Future<void> _submit() async {
@@ -117,21 +140,21 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
     request.fields['subject'] = subjectController.text;
     request.fields['level'] = _selectedLevel;
 
-    if (widget.contentType == 'video' && _useLink) {
-      request.fields['video_link'] = videoLinkController.text;
-    } else if (_pickedFile != null) {
-      request.files.add(await http.MultipartFile.fromPath('file', _pickedFile!.path));
-    }
-    // If editing and no new file/link was picked, we simply don't send
-    // 'file' or 'video_link' — the backend's partial update leaves the
-    // existing one untouched.
-
     try {
+      if (widget.contentType == 'video' && _useLink) {
+        request.fields['video_link'] = videoLinkController.text;
+      } else if (_pickedFile != null) {
+        request.files.add(await _buildFilePart(_pickedFile!));
+      }
+      // If editing and no new file/link was picked, we simply don't send
+      // 'file' or 'video_link' — the backend's partial update leaves the
+      // existing one untouched.
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      print('Status: ${response.statusCode}');
-      print('Body: ${response.body}');
+      debugPrint('Status: ${response.statusCode}');
+      debugPrint('Body: ${response.body}');
 
       final success = _isEditing ? response.statusCode == 200 : response.statusCode == 201;
 
@@ -150,10 +173,10 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
         }
       }
     } catch (e) {
-      print('Submit failed: $e');
+      debugPrint('Submit failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not connect to server')),
+          SnackBar(content: Text('Could not upload: $e')),
         );
       }
     } finally {
@@ -167,23 +190,21 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
 
     return Scaffold(
       appBar: AppBar(
-       
-        //title: Text('${_isEditing ? 'Edit' : 'Add'} ${widget.title}'),
         title: Row(
-  children: [
-    const AppLogo(radius: 18),
-    const SizedBox(width: 10),
-    Expanded(
-      child: Text(
-        '${_isEditing ? 'Edit' : 'Add'} ${widget.title}',
-        overflow: TextOverflow.ellipsis,
-      ),
-    ),
-  ],
-),
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${_isEditing ? 'Edit' : 'Add'} ${widget.title}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
@@ -256,7 +277,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
                   if (_pickedFile != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(_pickedFile!.path.split('/').last),
+                      child: Text(_pickedFile!.name),
                     )
                   else if (_isEditing && _existingFileName != null)
                     Padding(

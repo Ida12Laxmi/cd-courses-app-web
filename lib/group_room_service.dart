@@ -174,7 +174,7 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
           padding: const EdgeInsets.all(16),
           child: ValueListenableBuilder<List<dynamic>>(
             valueListenable: _roster,
-            builder: (_, __, ___) {
+            builder: (_, _, _) {
               final subjects = _subjectChoices();
               return Column(
                 mainAxisSize: MainAxisSize.min,

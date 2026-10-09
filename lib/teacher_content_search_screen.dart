@@ -144,7 +144,7 @@ class _TeacherContentSearchScreenState extends State<TeacherContentSearchScreen>
       
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         title: TextField(
           controller: _controller,
           autofocus: true,

@@ -329,7 +329,7 @@ class _StudentBillsScreenState extends State<StudentBillsScreen> {
   ],
 ),
         iconTheme: const IconThemeData(color: Colors.white),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: RefreshIndicator(onRefresh: _fetchBills, child: _buildBody()),
       floatingActionButton: _isTeacher

@@ -116,7 +116,7 @@ class _StudentAttendanceHistoryScreenState extends State<StudentAttendanceHistor
   ],
 ),
         iconTheme: const IconThemeData(color: Colors.white),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: RefreshIndicator(onRefresh: _fetchHistory, child: _buildBody()),
     );

@@ -16,6 +16,7 @@ import 'zoom_call_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'meeting_screens.dart';
 import 'group_room_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Teacherdashboard extends StatefulWidget {
   final int teacherId;
@@ -93,7 +94,12 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
     }
   }
 
-  void _logout(BuildContext context) {
+  Future<void> _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('teacher_id');
+    await prefs.remove('teacher_name');
+
+    if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const Login()),
@@ -331,7 +337,7 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
         iconTheme: const IconThemeData(color: Colors.white),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         title: Row(
           children: [
             const AppLogo(radius: 18),

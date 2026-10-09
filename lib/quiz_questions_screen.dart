@@ -155,7 +155,7 @@ class _QuizQuestionsScreenState extends State<QuizQuestionsScreen> {
           ),
           backgroundColor: const Color(0xFF013768),
           foregroundColor: Colors.white,
-          automaticallyImplyLeading: false,
+          automaticallyImplyLeading: true,
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, _questionsChanged),

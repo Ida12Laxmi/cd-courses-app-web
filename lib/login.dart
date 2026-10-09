@@ -1,3 +1,5 @@
+// Teacher project: paste this over lib/login.dart
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -7,35 +9,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'teacher_forgot_screen.dart';
 import 'otp_verification_screen.dart';
 import "config/api_config.dart";
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Read the saved login (if any) before the first screen is built.
-  final prefs = await SharedPreferences.getInstance();
-  runApp(MyApp(
-    teacherId: prefs.getInt('teacher_id'),
-    teacherName: prefs.getString('teacher_name'),
-  ));
-}
-
-class MyApp extends StatelessWidget {
-  final int? teacherId;
-  final String? teacherName;
-
-  const MyApp({super.key, this.teacherId, this.teacherName});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      // Already logged in -> go straight to the dashboard
-      home: teacherId != null
-          ? Teacherdashboard(teacherId: teacherId!, teacherName: teacherName)
-          : const Login(),
-    );
-  }
-}
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -48,10 +21,18 @@ class _LoginState extends State<Login> {
   final TextEditingController email = TextEditingController();
   final TextEditingController password = TextEditingController();
   bool _isObscured = true;
-
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
   Future<void> loginUser() async {
+    if (_isLoading) return;
+
     var url = Uri.parse('${ApiConfig.baseUrl}/login/');
 
     setState(() => _isLoading = true);
@@ -63,42 +44,50 @@ class _LoginState extends State<Login> {
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: jsonEncode(<String, String>{
-          'email': email.text,
+          'email': email.text.trim(),
           'password': password.text,
         }),
       );
 
-      print('Status: ${response.statusCode}');
-      print('Body: ${response.body}');
+      debugPrint('Status: ${response.statusCode}');
+      debugPrint('Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final teacherId = data['admin']['tid'];
-        final teacherName = data['admin']['username'];
+        final teacherId = int.parse(data['admin']['tid'].toString());
+        final teacherName = data['admin']['username']?.toString() ?? '';
 
-        // Remember the login on this phone (id and name only, never the password)
+        // Remember the login on this device (id and name only, never the password)
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('teacher_id', teacherId);
-        await prefs.setString('teacher_name', teacherName?.toString() ?? '');
+        await prefs.setString('teacher_name', teacherName);
 
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-        if (fcmToken != null) {
-          try {
+        // Push notifications: must never block the login (can throw on web)
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null) {
             await http.post(
               Uri.parse('${ApiConfig.baseUrl}/devices/register-token/'),
               headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'role': 'teacher', 'user_id': teacherId, 'token': fcmToken}),
+              body: jsonEncode({
+                'role': 'teacher',
+                'user_id': teacherId,
+                'token': fcmToken,
+              }),
             );
-          } catch (e) {
-            debugPrint('Failed to register device token: $e');
           }
+        } catch (e) {
+          debugPrint('Failed to register device token: $e');
         }
 
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) => Teacherdashboard(teacherId: teacherId, teacherName: teacherName),
+              builder: (_) => Teacherdashboard(
+                teacherId: teacherId,
+                teacherName: teacherName,
+              ),
             ),
           );
         }
@@ -110,7 +99,7 @@ class _LoginState extends State<Login> {
         }
       }
     } catch (e) {
-      print('Login request failed: $e');
+      debugPrint('Login request failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not connect to server')),
@@ -125,24 +114,15 @@ class _LoginState extends State<Login> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA), // Light grey background
-
       body: Column(
         children: [
           Container(
             color: const Color(0xFFFFFFFF),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            child: Row(
+            child: const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              /*  children: [
-                const Text(
-                  'Click-digitals Courses App',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-
-              ],*/
             ),
           ),
-
           Expanded(
             child: Center(
               child: SingleChildScrollView(
@@ -153,10 +133,7 @@ class _LoginState extends State<Login> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 10.0,
-                          top: 10.0,
-                        ),
+                        padding: const EdgeInsets.only(bottom: 10.0, top: 10.0),
                         child: Transform.scale(
                           scale: 2.25, // increase logo size
                           child: Image.asset(
@@ -167,11 +144,11 @@ class _LoginState extends State<Login> {
                           ),
                         ),
                       ),
-
                       Card(
                         color: Colors.white,
                         elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                         margin: const EdgeInsets.all(20),
                         child: Padding(
                           padding: const EdgeInsets.all(30.0),
@@ -180,17 +157,21 @@ class _LoginState extends State<Login> {
                             children: [
                               TextField(
                                 controller: email,
-                                decoration: const InputDecoration(labelText: 'Email'),
+                                decoration:
+                                    const InputDecoration(labelText: 'Email'),
                               ),
                               const SizedBox(height: 20),
                               TextField(
                                 controller: password,
                                 obscureText: _isObscured,
+                                onSubmitted: (_) => loginUser(),
                                 decoration: InputDecoration(
                                   labelText: 'Password',
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _isObscured ? Icons.visibility : Icons.visibility_off,
+                                      _isObscured
+                                          ? Icons.visibility
+                                          : Icons.visibility_off,
                                     ),
                                     onPressed: () {
                                       setState(() {
@@ -206,14 +187,19 @@ class _LoginState extends State<Login> {
                                 height: 50,
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color.fromRGBO(246, 148, 36, 1),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    backgroundColor:
+                                        const Color.fromRGBO(246, 148, 36, 1),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
                                   ),
-                                  onPressed: () async {
-                                    await loginUser();
-                                  },
-                                  child: const Text('Login',
-                                      style: TextStyle(fontSize: 18, color: Colors.white)),
+                                  onPressed: _isLoading ? null : loginUser,
+                                  child: _isLoading
+                                      ? const CircularProgressIndicator(
+                                          color: Colors.white)
+                                      : const Text('Login',
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              color: Colors.white)),
                                 ),
                               ),
                               const SizedBox(height: 20),
@@ -221,15 +207,19 @@ class _LoginState extends State<Login> {
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 onPressed: () {
                                   Navigator.pushReplacement(
                                     context,
-                                    MaterialPageRoute(builder: (_) => const OtpVerificationScreen()),
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const OtpVerificationScreen()),
                                   );
                                 },
-                                child: const Text('Not verified? Go to OTP Verification',
+                                child: const Text(
+                                    'Not verified? Go to OTP Verification',
                                     style: TextStyle(color: Color(0xFF0B8081))),
                               ),
                               const SizedBox(height: 20),
@@ -237,7 +227,8 @@ class _LoginState extends State<Login> {
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (_) => const TeacherForgotPasswordScreen()),
+                                      builder: (_) =>
+                                          const TeacherForgotPasswordScreen()),
                                 ),
                                 child: const Text('Forgot password?',
                                     style: TextStyle(color: Color(0xFF0B8081))),

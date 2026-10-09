@@ -155,7 +155,7 @@ class _StudentAssignmentsScreenState extends State<StudentAssignmentsScreen> {
       ),
     ),
   ],
-),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,automaticallyImplyLeading: false,
+),backgroundColor: const Color(0xFF013768),foregroundColor: Colors.white,automaticallyImplyLeading: true,
       actions: [
         IconButton(icon: const Icon(Icons.search),
         tooltip: 'Search',

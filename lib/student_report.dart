@@ -71,7 +71,7 @@ class _StudentAttendanceReportScreenState extends State<StudentAttendanceReportS
         ),
         iconTheme: const IconThemeData(color: Colors.white),
        
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: _buildBody(),
     );

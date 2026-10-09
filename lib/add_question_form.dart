@@ -169,7 +169,7 @@ class _AddQuestionFormState extends State<AddQuestionForm> {
 ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

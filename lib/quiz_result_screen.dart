@@ -74,7 +74,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
 ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: RefreshIndicator(onRefresh: _fetchResults, child: _buildBody()),
     );

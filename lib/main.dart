@@ -6,7 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';// Import the OTP verification screen
-
+import 'teacherdashboard.dart';
 import 'group_room_service.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -60,26 +60,28 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
 Future<void> _openRoomFromPush(RemoteMessage m) async {
   if (m.data['type'] != 'group_call') return;
   final prefs = await SharedPreferences.getInstance();
-  final sid = prefs.getInt('student_id');
   final tid = prefs.getInt('teacher_id');
-  if (sid == null || tid == null) return;
+  if (tid == null) return;
   navigatorKey.currentState?.push(MaterialPageRoute(
-    builder: (_) => GroupRoomScreen(teacherId: tid, role: 'student', userId: sid),
+    builder: (_) => GroupRoomScreen(teacherId: tid, role: 'teacher', userId: tid),
   ));
 }
 
-/*void main() {
-  runApp(const MyApp());
-}*/
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  final prefs = await SharedPreferences.getInstance();
+  final savedTeacherId = prefs.getInt('teacher_id');
+  final savedTeacherName = prefs.getString('teacher_name');
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   await _initLocalNotifications();
-
+ 
   await FirebaseMessaging.instance.requestPermission(
     alert: true,
     badge: true,
@@ -98,11 +100,13 @@ if (first != null) {
   final fcmToken = await FirebaseMessaging.instance.getToken();
   debugPrint('FCM TOKEN: $fcmToken');
 
-  runApp(const MyApp()); // keep whatever your actual root widget class is called here
+ runApp(MyApp(teacherId: savedTeacherId, teacherName: savedTeacherName)); // keep whatever your actual root widget class is called here
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final int? teacherId;
+  final String? teacherName;
+  const MyApp({super.key, this.teacherId, this.teacherName});
 
   // This widget is the root of your application.
   @override
@@ -115,8 +119,10 @@ class MyApp extends StatelessWidget {
        // colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         cardTheme: CardThemeData(color: Colors.white),
       ),
-      home: const Login(), // Set the home page to the registration page
-      initialRoute: '/login', // Set the initial route to the registration page
+     home: teacherId != null
+          ? Teacherdashboard(teacherId: teacherId!, teacherName: teacherName)
+          : const Login(), // Set the home page to the registration page
+     // initialRoute: '/login', // Set the initial route to the registration page
       routes: {
         '/reg': (context) => const Registration(),
         '/login': (context) => const Login(),

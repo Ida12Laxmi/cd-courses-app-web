@@ -149,7 +149,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
 ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

@@ -196,7 +196,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             const Text('Attendance', style: TextStyle(color: Colors.white)),
           ],
         ),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(

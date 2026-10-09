@@ -154,7 +154,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           ],
         ),
         iconTheme: const IconThemeData(color: Colors.white),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
        
       ),
       body: Center(

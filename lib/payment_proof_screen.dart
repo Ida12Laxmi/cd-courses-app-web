@@ -146,7 +146,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
         ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

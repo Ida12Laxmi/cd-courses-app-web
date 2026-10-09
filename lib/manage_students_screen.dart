@@ -19,7 +19,7 @@ class ManageStudentsScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
        backgroundColor: const Color(0xFF013768),
-       automaticallyImplyLeading: false,
+       automaticallyImplyLeading: true,
         title: Row(
           children: [
             const AppLogo(radius: 18),

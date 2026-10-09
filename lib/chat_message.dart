@@ -483,7 +483,7 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
         elevation: 1,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

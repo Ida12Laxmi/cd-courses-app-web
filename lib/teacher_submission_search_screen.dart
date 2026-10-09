@@ -217,7 +217,7 @@ class _TeacherSubmissionSearchScreenState extends State<TeacherSubmissionSearchS
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         title: TextField(
           controller: _controller,
           autofocus: true,

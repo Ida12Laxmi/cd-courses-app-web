@@ -70,7 +70,7 @@ class _StudentReportScreenState extends State<StudentReportScreen> {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
        
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: _buildBody(),
     );

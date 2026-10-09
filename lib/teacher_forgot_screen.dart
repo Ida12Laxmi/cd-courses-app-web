@@ -115,7 +115,7 @@ class _TeacherForgotPasswordScreenState extends State<TeacherForgotPasswordScree
         ),
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: Center(
         child: SingleChildScrollView(
