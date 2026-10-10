@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../services/zoom_call_service.dart';
 import '../config/api_config.dart'; // adjust to where your ApiConfig lives
@@ -472,27 +473,35 @@ class _StudentMeetingsScreenState extends State<StudentMeetingsScreen> {
   }
 
   Future<void> _joinWith({
-    required int id,
-    required String meetingNumber,
-    required String passcode,
-  }) async {
-    if (_joiningId != null) return; // already joining something
-    setState(() => _joiningId = id);
-    try {
+  required int id,
+  required String meetingNumber,
+  required String passcode,
+}) async {
+  if (_joiningId != null) return;
+  setState(() => _joiningId = id);
+  try {
+    if (kIsWeb) {
+      // Zoom's browser client; pwd is optional but skips the passcode prompt
+      final url = Uri.parse(
+        'https://zoom.us/wc/join/$meetingNumber'
+        '${passcode.isNotEmpty ? '?pwd=$passcode' : ''}',
+      );
+      final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!ok) _msg('Could not open Zoom in the browser');
+    } else {
       await [Permission.camera, Permission.microphone].request();
       await _zoom.join(
         meetingNumber: meetingNumber,
         password: passcode,
-        // "id|name" so the webhook can match attendance to this student
         displayName: '${widget.studentId}|${widget.studentName}',
       );
-    } catch (e) {
-      _msg('Could not join: $e');
-    } finally {
-      if (mounted) setState(() => _joiningId = null);
     }
+  } catch (e) {
+    _msg('Could not join: $e');
+  } finally {
+    if (mounted) setState(() => _joiningId = null);
   }
-
+}
   /// Checks the time window first. Only if the class is running right now
   /// does it show the pre-filled Meeting ID / Passcode dialog.
   Future<void> _openJoinDialog(Map m) async {
