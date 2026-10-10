@@ -14,6 +14,7 @@ import 'student_notification_screen.dart';
 import 'student_content_search_screen.dart';
 import 'change_password_student.dart';
 import 'group_room_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'login.dart';
 import 'app_logo.dart';
 
@@ -81,11 +82,18 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
     if (confirmed == true) {
       if (!context.mounted) return;
-      _logout(context);
+      await _logout(context);
     }
   }
 
-  void _logout(BuildContext context) {
+  Future<void> _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('student_id');
+    await prefs.remove('student_name');
+    await prefs.remove('teacher_id');
+    await prefs.remove('student_level');
+
+    if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const StudentLogin()),

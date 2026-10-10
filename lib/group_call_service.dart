@@ -1,12 +1,8 @@
-// lib/group_call_service.dart  (copy into BOTH the teacher and the student project)
-//
-// pubspec.yaml:
-//   flutter_webrtc, web_socket_channel, permission_handler, flutter_background
+
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -96,12 +92,27 @@ class GroupCallService extends ChangeNotifier {
 
   // ---- join / signaling -----------------------------------------------------
 
-  Future<void> join() async {
+   Future<void> join() async {
     await localRenderer.initialize();
-    localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
-      'video': {'facingMode': 'user', 'width': 640, 'height': 480, 'frameRate': 24},
-    });
+
+    Future<MediaStream> openMedia() async {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          'audio': true,
+          'video': {'facingMode': 'user', 'width': 640, 'height': 480, 'frameRate': 24},
+        });
+      } catch (e) {
+        debugPrint('camera busy, trying audio only: $e');
+        try {
+          return await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false});
+        } catch (e2) {
+          debugPrint('mic busy too, joining without media: $e2');
+          return await createLocalMediaStream('empty');
+        }
+      }
+    }
+
+    localStream = await openMedia();
     localRenderer.srcObject = localStream;
 
     _ch = WebSocketChannel.connect(Uri.parse(wsUrl));
@@ -151,6 +162,7 @@ class GroupCallService extends ChangeNotifier {
         final answer = await peer.pc!.createAnswer();
         await peer.pc!.setLocalDescription(answer);
         _send({'type': 'answer', 'to': from, 'sdp': answer.sdp});
+        if (sharing) _send({'type': 'screen-state', 'sharing': true});
         break;
 
       case 'answer':
@@ -249,10 +261,17 @@ class GroupCallService extends ChangeNotifier {
     final pc = await createPeerConnection(_config);
     peer.pc = pc;
 
-    for (final t in localStream!.getTracks()) {
+for (final t in localStream!.getTracks()) {
       // someone joining while I'm sharing should get my screen, not my camera
       final track = (t.kind == 'video' && sharing) ? _screenStream!.getVideoTracks().first : t;
       await pc.addTrack(track, localStream!);
+    }
+
+    if (localStream!.getVideoTracks().isEmpty) {
+      await pc.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
+      );
     }
 
     pc.onIceCandidate = (c) {
@@ -305,10 +324,7 @@ class GroupCallService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Swaps the outgoing video track for the screen track (no renegotiation needed).
-  /// On Android the media-projection foreground service must be running BEFORE
-  /// getDisplayMedia, otherwise Android throws a SecurityException.
-  /// iOS needs a Broadcast Upload Extension.
+
   Future<void> startScreenShare() async {
     if (sharing) return;
 

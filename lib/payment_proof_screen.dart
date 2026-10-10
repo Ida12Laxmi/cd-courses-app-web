@@ -1,10 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:gal/gal.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:url_launcher/url_launcher.dart';
 import "config/api_config.dart";
 import 'app_logo.dart';
 
@@ -32,7 +34,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
 
   final _transactionController = TextEditingController();
   String _paymentMethod = 'esewa';
-  File? _screenshot;
+  PlatformFile? _screenshot; // kept as bytes so it works on web and mobile
 
   String? _qrUrl;
   bool _loadingQr = true;
@@ -49,6 +51,12 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     _loadQr();
   }
 
+  @override
+  void dispose() {
+    _transactionController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadQr() async {
     setState(() {
       _loadingQr = true;
@@ -57,6 +65,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     final url = Uri.parse('$_apiBaseUrl/teacher/payment-qr/${widget.teacherId}/');
     try {
       final res = await http.get(url);
+      if (!mounted) return;
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final path = data['payment_qr_file']?.toString();
@@ -73,6 +82,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _qrError = 'Could not load QR code.';
         _loadingQr = false;
@@ -80,15 +90,50 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     }
   }
 
+  /// Web uploads from bytes have no MIME type unless we set one, and many
+  /// backends reject 'application/octet-stream' for image fields.
+  MediaType _imageType(String fileName) {
+    final ext = fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
+    switch (ext) {
+      case 'png':
+        return MediaType('image', 'png');
+      case 'webp':
+        return MediaType('image', 'webp');
+      case 'gif':
+        return MediaType('image', 'gif');
+      default:
+        return MediaType('image', 'jpeg');
+    }
+  }
+
   Future<void> _pickScreenshot() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result != null && result.files.single.path != null) {
-      setState(() => _screenshot = File(result.files.single.path!));
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true, // bytes are required on web
+    );
+    if (result != null && result.files.single.bytes != null) {
+      setState(() => _screenshot = result.files.single);
     }
   }
 
   Future<void> _downloadQr() async {
     if (_qrUrl == null) return;
+
+    // Web has no gallery: open the QR image in a new tab so it can be saved
+    // (right-click -> Save image as...).
+    if (kIsWeb) {
+      final ok = await launchUrl(
+        Uri.parse(_qrUrl!),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the QR image.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _downloadingQr = true);
     try {
       final res = await http.get(Uri.parse(_qrUrl!));
@@ -138,13 +183,21 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     final request = http.MultipartRequest('PATCH', url);
     request.fields['payment_method'] = _paymentMethod;
     request.fields['transaction_code'] = _transactionController.text.trim();
-    if (_screenshot != null) {
-      request.files.add(await http.MultipartFile.fromPath('payment_screenshot', _screenshot!.path));
+    if (_screenshot != null && _screenshot!.bytes != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'payment_screenshot',
+          _screenshot!.bytes!,
+          filename: _screenshot!.name,
+          contentType: _imageType(_screenshot!.name),
+        ),
+      );
     }
 
     try {
       final streamed = await request.send();
       final res = await http.Response.fromStream(streamed);
+      if (!mounted) return;
       if (res.statusCode == 200) {
         setState(() {
           _submitting = false;
@@ -152,19 +205,16 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
         });
       } else {
         setState(() => _submitting = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Submission failed: ${res.body}')),
-          );
-        }
-      }
-    } catch (e) {
-      setState(() => _submitting = false);
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not connect to server: $e')),
+          SnackBar(content: Text('Submission failed: ${res.body}')),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not connect to server: $e')),
+      );
     }
   }
 
@@ -173,15 +223,14 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-       // title: const Text('Pay Bill'),
         automaticallyImplyLeading: false,
-         title: Row(
-  children: [
-    const AppLogo(radius: 18),
-    const SizedBox(width: 10),
-    Expanded(child: Text("Pay Bill", overflow: TextOverflow.ellipsis)),
-  ],
-),
+        title: Row(
+          children: [
+            const AppLogo(radius: 18),
+            const SizedBox(width: 10),
+            const Expanded(child: Text("Pay Bill", overflow: TextOverflow.ellipsis)),
+          ],
+        ),
         backgroundColor: const Color(0xFFEDE7F6),
         foregroundColor: Colors.black87,
         elevation: 0,
@@ -276,8 +325,12 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
                                     width: 16,
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   )
-                                : const Icon(Icons.download),
-                            label: Text(_downloadingQr ? 'Saving...' : 'Download QR to Gallery'),
+                                : Icon(kIsWeb ? Icons.open_in_new : Icons.download),
+                            label: Text(
+                              _downloadingQr
+                                  ? 'Saving...'
+                                  : (kIsWeb ? 'Open QR in new tab' : 'Download QR to Gallery'),
+                            ),
                           ),
                         ],
                       ),
@@ -316,7 +369,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
             icon: const Icon(Icons.camera_alt_outlined),
             label: Text(_screenshot == null
                 ? 'Attach Payment Screenshot (optional)'
-                : _screenshot!.path.split('/').last),
+                : _screenshot!.name),
           ),
           const SizedBox(height: 24),
           SizedBox(

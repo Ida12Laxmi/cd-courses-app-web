@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_zoom_meeting_sdk
   gal
   permission_handler_windows
+  syncfusion_pdfviewer_windows
   url_launcher_windows
 )
 

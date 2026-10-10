@@ -1,14 +1,15 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'services/api_service.dart';
-
 
 class SecureContentViewerScreen extends StatefulWidget {
   final int? contentId;
@@ -42,7 +43,8 @@ class SecureContentViewerScreen extends StatefulWidget {
         fileName = fileName;
 
   @override
-  State<SecureContentViewerScreen> createState() => _SecureContentViewerScreenState();
+  State<SecureContentViewerScreen> createState() =>
+      _SecureContentViewerScreenState();
 }
 
 enum _RenderKind { pdf, video, image, unsupported }
@@ -50,7 +52,7 @@ enum _RenderKind { pdf, video, image, unsupported }
 class _SecureContentViewerScreenState extends State<SecureContentViewerScreen> {
   Uint8List? _bytes;
   String? _error;
-  File? _tempFile;
+  File? _tempFile; // mobile only, always null on web
 
   bool get _isAttachmentMode => widget.attachmentUrl != null;
 
@@ -95,13 +97,20 @@ class _SecureContentViewerScreenState extends State<SecureContentViewerScreen> {
   }
 
   Future<void> _enableProtection() async {
-    await ScreenProtector.preventScreenshotOn();
-    ScreenProtector.addListener(() {
-      debugPrint('Screenshot detected for content ${widget.contentId ?? widget.attachmentUrl}');
-    }, (bool isRecording) {
-      debugPrint(
-          'Screen recording state changed: $isRecording for content ${widget.contentId ?? widget.attachmentUrl}');
-    });
+    // screen_protector has no web implementation.
+    if (kIsWeb) return;
+    try {
+      await ScreenProtector.preventScreenshotOn();
+      ScreenProtector.addListener(() {
+        debugPrint(
+            'Screenshot detected for content ${widget.contentId ?? widget.attachmentUrl}');
+      }, (bool isRecording) {
+        debugPrint(
+            'Screen recording state changed: $isRecording for content ${widget.contentId ?? widget.attachmentUrl}');
+      });
+    } catch (e) {
+      debugPrint('Screen protection failed: $e');
+    }
   }
 
   Future<void> _load() async {
@@ -118,29 +127,37 @@ class _SecureContentViewerScreenState extends State<SecureContentViewerScreen> {
       }
 
       // Images are shown straight from memory — no temp file needed.
-      if (_renderKind == _RenderKind.image) {
+      // On web there is no file system, so everything stays in memory.
+      if (_renderKind == _RenderKind.image || kIsWeb) {
+        if (!mounted) return;
         setState(() => _bytes = bytes);
         return;
       }
 
+      // Mobile only: write to a private temp file.
       final dir = await getTemporaryDirectory();
       final ext = _renderKind == _RenderKind.video ? 'mp4' : 'pdf';
       final safeId = widget.contentId?.toString() ??
-          (widget.fileName ?? 'attachment').replaceAll(RegExp(r'[^\w.\-]'), '_');
+          (widget.fileName ?? 'attachment')
+              .replaceAll(RegExp(r'[^\w.\-]'), '_');
       final file = File('${dir.path}/_view_$safeId.$ext');
       await file.writeAsBytes(bytes, flush: true);
       _tempFile = file;
+      if (!mounted) return;
       setState(() => _bytes = bytes);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     }
   }
 
   @override
   void dispose() {
-    ScreenProtector.preventScreenshotOff();
-    ScreenProtector.removeListener();
-    _tempFile?.delete().catchError((_) => _tempFile!);
+    if (!kIsWeb) {
+      ScreenProtector.preventScreenshotOff();
+      ScreenProtector.removeListener();
+      _tempFile?.delete().catchError((_) => _tempFile!);
+    }
     super.dispose();
   }
 
@@ -170,11 +187,40 @@ class _SecureContentViewerScreenState extends State<SecureContentViewerScreen> {
           maxScale: 4,
           child: Center(child: Image.memory(_bytes!)),
         );
+
       case _RenderKind.video:
-        if (_tempFile == null) return const Center(child: CircularProgressIndicator());
+        if (kIsWeb) {
+          // Chat attachments have a direct URL, so they can stream on web.
+          if (_isAttachmentMode) {
+            return _NetworkVideoPlayer(url: widget.attachmentUrl!);
+          }
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Video playback for this content is not supported on web yet.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        if (_tempFile == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
         return _UploadedVideoPlayer(file: _tempFile!);
+
       case _RenderKind.pdf:
-        if (_tempFile == null) return const Center(child: CircularProgressIndicator());
+        if (kIsWeb) {
+          return SfPdfViewer.memory(
+            _bytes!,
+            onDocumentLoadFailed: (details) {
+              setState(() => _error = details.description);
+            },
+          );
+        }
+        if (_tempFile == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
         return PDFView(
           filePath: _tempFile!.path,
           enableSwipe: true,
@@ -188,6 +234,7 @@ class _SecureContentViewerScreenState extends State<SecureContentViewerScreen> {
             debugPrint('PDF rendered: $pages pages');
           },
         );
+
       case _RenderKind.unsupported:
         return Center(
           child: Padding(
@@ -195,7 +242,8 @@ class _SecureContentViewerScreenState extends State<SecureContentViewerScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.insert_drive_file, size: 64, color: Colors.grey),
+                const Icon(Icons.insert_drive_file,
+                    size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
                 Text(
                   'Preview not available for this file type yet.\n(${widget.fileName ?? widget.title})',
@@ -211,6 +259,7 @@ class _SecureContentViewerScreenState extends State<SecureContentViewerScreen> {
 
 /// Plays an uploaded video file (already downloaded to the app's private
 /// temp dir by the parent screen) using video_player + chewie.
+/// Mobile only — never used on web.
 class _UploadedVideoPlayer extends StatefulWidget {
   final File file;
   const _UploadedVideoPlayer({required this.file});
@@ -234,6 +283,7 @@ class _UploadedVideoPlayerState extends State<_UploadedVideoPlayer> {
     try {
       final controller = VideoPlayerController.file(widget.file);
       await controller.initialize();
+      if (!mounted) return;
       setState(() {
         _videoController = controller;
         _chewieController = ChewieController(
@@ -243,6 +293,7 @@ class _UploadedVideoPlayerState extends State<_UploadedVideoPlayer> {
         );
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     }
   }
@@ -266,9 +317,8 @@ class _UploadedVideoPlayerState extends State<_UploadedVideoPlayer> {
   }
 }
 
-/// Plays a non-YouTube external video URL directly over the network (no
-/// download to disk here) using video_player + chewie. Same reasoning as
-/// above: chewie's controls expose no download option.
+/// Plays a video URL directly over the network (no download to disk here)
+/// using video_player + chewie. Works on mobile and web.
 class _NetworkVideoPlayer extends StatefulWidget {
   final String url;
   const _NetworkVideoPlayer({required this.url});
@@ -290,8 +340,10 @@ class _NetworkVideoPlayerState extends State<_NetworkVideoPlayer> {
 
   Future<void> _init() async {
     try {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+      final controller =
+          VideoPlayerController.networkUrl(Uri.parse(widget.url));
       await controller.initialize();
+      if (!mounted) return;
       setState(() {
         _videoController = controller;
         _chewieController = ChewieController(
@@ -301,6 +353,7 @@ class _NetworkVideoPlayerState extends State<_NetworkVideoPlayer> {
         );
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     }
   }

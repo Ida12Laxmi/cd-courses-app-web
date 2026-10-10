@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.0.196:8000/accounts';
+  static const String baseUrl = 'http://localhost:8000/accounts';
   static const _storage = FlutterSecureStorage();
 
   static Future<Map<String, String>> _headers({bool json = true}) async {
@@ -19,6 +21,23 @@ class ApiService {
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('API error ${res.statusCode}: ${res.body}');
     }
+  }
+
+  /// Builds a multipart file part that works on both web and mobile.
+  /// Web has no file path, so it uses the picked file's bytes
+  /// (FilePicker must be called with withData: true on web).
+  static Future<http.MultipartFile> _filePart(String field, PlatformFile f) async {
+    if (kIsWeb) {
+      final bytes = f.bytes;
+      if (bytes == null) {
+        throw Exception('File data is missing. Please pick the file again.');
+      }
+      return http.MultipartFile.fromBytes(field, bytes, filename: f.name);
+    }
+    if (f.path == null) {
+      throw Exception('File path is missing. Please pick the file again.');
+    }
+    return http.MultipartFile.fromPath(field, f.path!, filename: f.name);
   }
 
   // ---------- Content ----------
@@ -41,8 +60,6 @@ class ApiService {
     return res.bodyBytes;
   }
 
- 
-
   // ---------- Submissions ----------
 
   static Future<List<dynamic>> fetchAssignmentSubmissions(int studentId) async {
@@ -62,35 +79,37 @@ class ApiService {
     _checkOk(res);
     return jsonDecode(res.body);
   }
- static String get mediaOrigin {
+
+  static String get mediaOrigin {
     final uri = Uri.parse(baseUrl);
     return '${uri.scheme}://${uri.host}:${uri.port}';
   }
+
   static Future<void> submitAssignment({
     required int studentId,
     required String title,
-    required String filePath,
+    required PlatformFile file,
     String description = '',
   }) async {
-    await _submit('$baseUrl/students/$studentId/assignments/submit/', title, description, filePath);
+    await _submit('$baseUrl/students/$studentId/assignments/submit/', title, description, file);
   }
 
   static Future<void> submitProject({
     required int studentId,
     required String title,
-    required String filePath,
+    required PlatformFile file,
     String description = '',
   }) async {
-    await _submit('$baseUrl/students/$studentId/projects/submit/', title, description, filePath);
+    await _submit('$baseUrl/students/$studentId/projects/submit/', title, description, file);
   }
 
-  static Future<void> _submit(String url, String title, String description, String filePath) async {
+  static Future<void> _submit(String url, String title, String description, PlatformFile file) async {
     final token = await _storage.read(key: 'auth_token');
     final req = http.MultipartRequest('POST', Uri.parse(url));
     if (token != null) req.headers['Authorization'] = 'Token $token';
     req.fields['title'] = title;
     req.fields['description'] = description;
-    req.files.add(await http.MultipartFile.fromPath('file', filePath));
+    req.files.add(await _filePart('file', file));
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
     _checkOk(res);
@@ -103,14 +122,14 @@ class ApiService {
     required int studentId,
     required String title,
     String description = '',
-    String? filePath,
+    PlatformFile? file,
   }) async {
     await _updateOwn(
       url: '$baseUrl/students/assignments/update/$asid/',
       studentId: studentId,
       title: title,
       description: description,
-      filePath: filePath,
+      file: file,
     );
   }
 
@@ -127,14 +146,14 @@ class ApiService {
     required int studentId,
     required String title,
     String description = '',
-    String? filePath,
+    PlatformFile? file,
   }) async {
     await _updateOwn(
       url: '$baseUrl/students/projects/update/$psid/',
       studentId: studentId,
       title: title,
       description: description,
-      filePath: filePath,
+      file: file,
     );
   }
 
@@ -149,7 +168,7 @@ class ApiService {
     required int studentId,
     required String title,
     required String description,
-    String? filePath,
+    PlatformFile? file,
   }) async {
     final token = await _storage.read(key: 'auth_token');
     final req = http.MultipartRequest('PATCH', Uri.parse(url));
@@ -157,8 +176,8 @@ class ApiService {
     req.fields['student_id'] = studentId.toString();
     req.fields['title'] = title;
     req.fields['description'] = description;
-    if (filePath != null) {
-      req.files.add(await http.MultipartFile.fromPath('file', filePath));
+    if (file != null) {
+      req.files.add(await _filePart('file', file));
     }
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
@@ -240,11 +259,12 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
-  static Future<Map<String,dynamic>> searchAssignmentorProject(int studentId, String contentType, String query) async {
-    final uri=Uri.parse('$baseUrl/students/$studentId/$contentType/search/')
-      .replace(queryParameters: {'q': query});
-      final res = await http.get(uri, headers: await _headers());
-  _checkOk(res);
-  return jsonDecode(res.body);
+  static Future<Map<String, dynamic>> searchAssignmentorProject(
+      int studentId, String contentType, String query) async {
+    final uri = Uri.parse('$baseUrl/students/$studentId/$contentType/search/')
+        .replace(queryParameters: {'q': query});
+    final res = await http.get(uri, headers: await _headers());
+    _checkOk(res);
+    return jsonDecode(res.body);
   }
 }

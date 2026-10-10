@@ -5,6 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';// Import the OTP verification screen
+import 'student_dashboard.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -52,7 +55,26 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
 //void main() {
  // runApp(const MyApp());
  Future<void> main() async {
+  
   WidgetsFlutterBinding.ensureInitialized();
+
+  final prefs = await SharedPreferences.getInstance();
+  final sid = prefs.getInt('student_id');
+  final name = prefs.getString('student_name');
+  final tid = prefs.getInt('teacher_id');
+  final level = prefs.getString('student_level');
+
+  final Widget home = (sid != null && name != null && tid != null && level != null)
+      ? StudentDashboardScreen(
+          studentId: sid,
+          studentName: name,
+          teacherId: tid,
+          studentLevel: level,
+        )
+      : const StudentLogin();
+
+ 
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -68,12 +90,15 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
 
   FirebaseMessaging.onMessage.listen(_showForegroundNotification);
 
-  runApp(const MyApp()); // keep whatever your actual root widget class is called here
+  //runApp(const MyApp()); // keep whatever your actual root widget class is called here
+   runApp(MyApp(home: home));
 }
 //}
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Widget home;
+
+  const MyApp({super.key, required this.home});
 
   // This widget is the root of your application.
   @override
@@ -101,14 +126,6 @@ class MyApp extends StatelessWidget {
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 

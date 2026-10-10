@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'services/api_service.dart';
@@ -19,8 +20,7 @@ class SubmissionScreen extends StatefulWidget {
 class _SubmissionScreenState extends State<SubmissionScreen> {
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
-  String? _pickedFilePath;
-  String? _pickedFileName;
+  PlatformFile? _pickedFile; // works on web (bytes) and mobile (path)
   bool _submitting = false;
   late Future<List<dynamic>> _questions;
   late Future<List<dynamic>> _history;
@@ -36,6 +36,13 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
         : ApiService.fetchProjectSubmissions(widget.studentId);
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
   void _refreshHistory() {
     setState(() {
       _history = _isAssignment
@@ -44,21 +51,19 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     });
   }
 
- Future<void> _pickFile() async {
-  final result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['pdf'],
-  );
-  if (result != null && result.files.single.path != null) {
-    setState(() {
-      _pickedFilePath = result.files.single.path;
-      _pickedFileName = result.files.single.name;
-    });
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: kIsWeb, // bytes are required on web
+    );
+    if (result != null) {
+      setState(() => _pickedFile = result.files.single);
+    }
   }
-}
 
   Future<void> _submit() async {
-    if (_titleController.text.trim().isEmpty || _pickedFilePath == null) {
+    if (_titleController.text.trim().isEmpty || _pickedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add a title and pick a file first.')),
       );
@@ -70,14 +75,14 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
         await ApiService.submitAssignment(
           studentId: widget.studentId,
           title: _titleController.text.trim(),
-          filePath: _pickedFilePath!,
+          file: _pickedFile!,
           description: _noteController.text.trim(),
         );
       } else {
         await ApiService.submitProject(
           studentId: widget.studentId,
           title: _titleController.text.trim(),
-          filePath: _pickedFilePath!,
+          file: _pickedFile!,
           description: _noteController.text.trim(),
         );
       }
@@ -85,10 +90,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted successfully.')));
         _titleController.clear();
         _noteController.clear();
-        setState(() {
-          _pickedFilePath = null;
-          _pickedFileName = null;
-        });
+        setState(() => _pickedFile = null);
         _refreshHistory();
       }
     } catch (e) {
@@ -105,8 +107,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
   Future<void> _openEditDialog(dynamic submission) async {
     final editTitleController = TextEditingController(text: submission['title'] ?? '');
     final editNoteController = TextEditingController(text: submission['description'] ?? '');
-    String? newFilePath;
-    String? newFileName;
+    PlatformFile? newFile;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -135,12 +136,10 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
                         final result = await FilePicker.platform.pickFiles(
                           type: FileType.custom,
                           allowedExtensions: ['pdf'],
+                          withData: kIsWeb,
                         );
-                        if (result != null && result.files.single.path != null) {
-                          setDialogState(() {
-                            newFilePath = result.files.single.path;
-                            newFileName = result.files.single.name;
-                          });
+                        if (result != null) {
+                          setDialogState(() => newFile = result.files.single);
                         }
                       },
                       icon: const Icon(Icons.attach_file),
@@ -149,7 +148,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        newFileName ?? 'Keep current file',
+                        newFile?.name ?? 'Keep current file',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -181,7 +180,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
           studentId: widget.studentId,
           title: editTitleController.text.trim(),
           description: editNoteController.text.trim(),
-          filePath: newFilePath,
+          file: newFile,
         );
       } else {
         await ApiService.updateOwnProject(
@@ -189,7 +188,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
           studentId: widget.studentId,
           title: editTitleController.text.trim(),
           description: editNoteController.text.trim(),
-          filePath: newFilePath,
+          file: newFile,
         );
       }
       if (mounted) {
@@ -240,33 +239,32 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     }
   }
 
+  Future<void> _openFile(dynamic submission) async {
+    final rawUrl = submission['file'] ?? submission['file_url'];
+    if (rawUrl == null || rawUrl.toString().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No file attached to this submission.')),
+      );
+      return;
+    }
 
-Future<void> _openFile(dynamic submission) async {
-  final rawUrl = submission['file'] ?? submission['file_url'];
-  if (rawUrl == null || rawUrl.toString().isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No file attached to this submission.')),
-    );
-    return;
-  }
+    final path = rawUrl.toString();
+    final fullUrl = path.startsWith('http') ? path : '${ApiService.mediaOrigin}$path';
+    final fileName = path.split('/').last;
+    final title = (submission['title'] ?? fileName).toString();
 
-  final path = rawUrl.toString();
-  final fullUrl = path.startsWith('http') ? path : '${ApiService.mediaOrigin}$path';
-  final fileName = path.split('/').last;
-  final title = (submission['title'] ?? fileName).toString();
-
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => SecureContentViewerScreen.forAttachment(
-        url: fullUrl,
-        fileName: fileName,
-        title: title,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SecureContentViewerScreen.forAttachment(
+          url: fullUrl,
+          fileName: fileName,
+          title: title,
+        ),
+        fullscreenDialog: true,
       ),
-      fullscreenDialog: true,
-    ),
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +272,7 @@ Future<void> _openFile(dynamic submission) async {
       appBar: AppBar(
         backgroundColor: const Color(0xFF013768),
         foregroundColor: Colors.white,
-         automaticallyImplyLeading: false,
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             const AppLogo(radius: 18),
@@ -282,19 +280,22 @@ Future<void> _openFile(dynamic submission) async {
             Text(widget.title),
           ],
         ),
-      actions: [
-        IconButton(icon: const Icon(Icons.search),
-        tooltip: 'Search',
-        onPressed: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => StudentSubmissionSearchScreen(
-          studentId: widget.studentId,
-          contentType: widget.contentType,
-          title: widget.title,
-          
-        ),
-      )),
-        ),
-      ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Search',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StudentSubmissionSearchScreen(
+                  studentId: widget.studentId,
+                  contentType: widget.contentType,
+                  title: widget.title,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -310,29 +311,47 @@ Future<void> _openFile(dynamic submission) async {
               final items = snapshot.data ?? [];
               if (items.isEmpty) return const Text('Nothing posted yet.');
               return Column(
-                children: items.map((q) => Card(
-                  child: ListTile(
-                    title: Text(q['title'] ?? ''),
-                    subtitle: Text(q['description'] ?? ''),
-                     trailing: const Icon(Icons.chevron_right),
-      onTap: () => _openFile(q),
-                  ),
-                )).toList(),
+                children: items
+                    .map((q) => Card(
+                          child: ListTile(
+                            title: Text(q['title'] ?? ''),
+                            subtitle: Text(q['description'] ?? ''),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _openFile(q),
+                          ),
+                        ))
+                    .toList(),
               );
             },
           ),
           const Divider(height: 32),
           Text('Submit your work', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder())),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _noteController, maxLines: 3, decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder())),
+          TextField(
+            controller: _noteController,
+            maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder()),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
-              OutlinedButton.icon(onPressed: _pickFile, icon: const Icon(Icons.attach_file), label: const Text('Pick file')),
+              OutlinedButton.icon(
+                onPressed: _pickFile,
+                icon: const Icon(Icons.attach_file),
+                label: const Text('Pick file'),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: Text(_pickedFileName ?? 'No file selected', overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  _pickedFile?.name ?? 'No file selected',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),

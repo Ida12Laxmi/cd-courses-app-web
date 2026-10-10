@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'config/api_config.dart';
 import 'group_call_service.dart';
 import 'room_stage.dart';
@@ -39,19 +39,21 @@ class _GroupRoomScreenState extends State<GroupRoomScreen> {
     _start();
   }
 
-  Future<void> _start() async {
+Future<void> _start() async {
+  if (!kIsWeb) {
     final st = await [Permission.camera, Permission.microphone].request();
     if (st.values.any((s) => !s.isGranted)) {
       setState(() => _error = 'Camera and microphone permission are required.');
       return;
     }
-    try {
-      await _svc.join();
-      if (mounted) setState(() => _ready = true);
-    } catch (e) {
-      if (mounted) setState(() => _error = 'Could not join: $e');
-    }
   }
+  try {
+    await _svc.join();
+    if (mounted) setState(() => _ready = true);
+  } catch (e) {
+    if (mounted) setState(() => _error = 'Could not join: $e');
+  }
+}
 
   @override
   void dispose() {

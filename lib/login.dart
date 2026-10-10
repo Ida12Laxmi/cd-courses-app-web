@@ -23,17 +23,55 @@ class _StudentLoginState extends State<StudentLogin> {
   final TextEditingController email = TextEditingController();
   final TextEditingController password = TextEditingController();
 
+  bool _isObscured = true;
+  bool _isLoading = false;
+  bool _checking = true; // true while we look for a saved login
+
   @override
   void initState() {
     super.initState();
     if (widget.prefillEmail != null) {
       email.text = widget.prefillEmail!;
     }
+    _autoLogin();
   }
 
-  bool _isObscured = true;
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
 
-  bool _isLoading = false;
+  /// If the student logged in before, skip the login screen.
+  Future<void> _autoLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sid = prefs.getInt('student_id');
+      final name = prefs.getString('student_name');
+      final tid = prefs.getInt('teacher_id');
+      final level = prefs.getString('student_level');
+
+      if (sid != null && name != null && tid != null && level != null) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StudentDashboardScreen(
+              studentId: sid,
+              studentName: name,
+              teacherId: tid,
+              studentLevel: level,
+            ),
+          ),
+        );
+        return;
+      }
+    } catch (e) {
+      debugPrint('auto login check failed: $e');
+    }
+    if (mounted) setState(() => _checking = false);
+  }
 
   Future<void> _loginStudent() async {
     if (email.text.trim().isEmpty || password.text.isEmpty) {
@@ -67,24 +105,25 @@ class _StudentLoginState extends State<StudentLogin> {
         final teacherId = int.parse(student['tid'].toString());
         final studentLevel = student['level'].toString();
 
-        // Remember the login on this phone (never the password)
+        // Remember the login on this device (never the password)
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('student_id', studentId);
         await prefs.setString('student_name', studentName);
         await prefs.setInt('teacher_id', teacherId);
         await prefs.setString('student_level', studentLevel);
 
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-        if (fcmToken != null) {
-          try {
+        // Push notifications: must never block the login (can throw on web)
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null) {
             await ApiService.registerDeviceToken(
               role: 'student',
               userId: studentId,
               token: fcmToken,
             );
-          } catch (e) {
-            debugPrint('Failed to register device token: $e');
           }
+        } catch (e) {
+          debugPrint('Failed to register device token: $e');
         }
 
         if (mounted) {
@@ -106,7 +145,7 @@ class _StudentLoginState extends State<StudentLogin> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => OtpVerificationScreen(),
+              builder: (_) => const OtpVerificationScreen(),
             ),
           );
         }
@@ -130,6 +169,14 @@ class _StudentLoginState extends State<StudentLogin> {
 
   @override
   Widget build(BuildContext context) {
+    // Avoid flashing the login form while we check for a saved login
+    if (_checking) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8F9FA),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
@@ -139,12 +186,6 @@ class _StudentLoginState extends State<StudentLogin> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              /* children: [
-                Text(
-                  'Click-digitals Courses App',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ],*/
             ),
           ),
           Expanded(
@@ -156,10 +197,7 @@ class _StudentLoginState extends State<StudentLogin> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 10.0,
-                          top: 10.0,
-                        ),
+                        padding: const EdgeInsets.only(bottom: 10.0, top: 10.0),
                         child: Transform.scale(
                           scale: 2.25, // increase logo size
                           child: Image.asset(
@@ -187,6 +225,7 @@ class _StudentLoginState extends State<StudentLogin> {
                               TextField(
                                 controller: password,
                                 obscureText: _isObscured,
+                                onSubmitted: (_) => _isLoading ? null : _loginStudent(),
                                 decoration: InputDecoration(
                                   labelText: 'Password',
                                   suffixIcon: IconButton(
