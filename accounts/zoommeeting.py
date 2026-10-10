@@ -59,6 +59,14 @@ def _student(student_id):
         return Student.objects.get(pk=int(student_id))
     except (TypeError, ValueError, Student.DoesNotExist):
         return None
+def _subject_text(s):
+    """Works whether `subject` is a text field, a ForeignKey, or a ManyToMany."""
+    sub = getattr(s, "subject", None)   # rename if your field is called differently
+    if sub is None:
+        return ""
+    if hasattr(sub, "all"):             # ManyToMany / reverse relation
+        return ", ".join(str(x) for x in sub.all())
+    return str(sub)                     # CharField or ForeignKey (uses __str__)
 
 def _overlapping_meeting(teacher, start, minutes, exclude_id=None):
     end = start + timedelta(minutes=minutes)
@@ -159,9 +167,14 @@ def invitable_students(request, teacher_id):
         return _err("Teacher not found", 404)
     # Student's primary key is `sid`, so always use pk (not id)
     students = Student.objects.filter(teacher=teacher)
-    return Response(
-        [{"id": s.pk, "name": getattr(s, "username", None) or str(s)} for s in students]
-    )
+    return Response([
+        {
+            "id": s.pk,
+            "name": getattr(s, "username", None) or str(s),
+            "subject": _subject_text(s),
+        }
+        for s in students
+    ])
 
 
 @open_api("POST")
