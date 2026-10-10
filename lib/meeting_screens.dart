@@ -198,52 +198,55 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   }
 
   Future<void> _pickStudents() async {
-    try {
-      final all = await _api.students(widget.teacherId);
-      if (!mounted) return;
-      final chosen = {..._invited};
-      await showDialog(
-        context: context,
-        builder: (_) => StatefulBuilder(
-          builder: (ctx, setD) => AlertDialog(
-            title: const Text('Invitees'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final s in all)
-                    CheckboxListTile(
-                      title: Text(s['name'].toString()),
-                      value: chosen.contains(s['id']),
-                      onChanged: (v) => setD(() => v == true
-                          ? chosen.add(s['id'])
-                          : chosen.remove(s['id'])),
-                    ),
-                ],
-              ),
+  try {
+    final all = await _api.students(widget.teacherId);
+    if (!mounted) return;
+    final chosen = {..._invited};
+    await showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Invitees'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final s in all)
+                  CheckboxListTile(
+                    title: Text(s['name'].toString()),
+                    subtitle: (s['subject'] ?? '').toString().isEmpty
+                        ? null
+                        : Text(s['subject'].toString()),
+                    value: chosen.contains(s['id']),
+                    onChanged: (v) => setD(() => v == true
+                        ? chosen.add(s['id'])
+                        : chosen.remove(s['id'])),
+                  ),
+              ],
             ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel')),
-              FilledButton(
-                onPressed: () {
-                  setState(() => _invited
-                    ..clear()
-                    ..addAll(chosen));
-                  Navigator.pop(ctx);
-                },
-                child: const Text('Done'),
-              ),
-            ],
           ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                setState(() => _invited
+                  ..clear()
+                  ..addAll(chosen));
+                Navigator.pop(ctx);
+              },
+              child: const Text('Done'),
+            ),
+          ],
         ),
-      );
-    } catch (e) {
-      _snack('Could not load students: $e');
-    }
+      ),
+    );
+  } catch (e) {
+    _snack('Could not load students: $e');
   }
+}
 
   Future<void> _save() async {
     if (_date == null || _time == null) {
