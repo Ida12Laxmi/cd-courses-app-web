@@ -2,6 +2,12 @@
 //
 // pubspec.yaml:
 //   flutter_webrtc, web_socket_channel, permission_handler, flutter_background
+//
+// CHANGES vs previous version (search for "LATE JOINER"):
+//   1. _pendingSharing set
+//   2. 'offer' case: if I'm sharing, re-announce screen-state to the newcomer
+//   3. 'screen-state' case: remembers the flag even if the peer doesn't exist yet
+//   4. _createPeer: applies a remembered sharing flag
 
 import 'dart:async';
 import 'dart:convert';
@@ -43,6 +49,9 @@ class GroupCallService extends ChangeNotifier {
   final RTCVideoRenderer localRenderer = RTCVideoRenderer();
   final Map<String, CallPeer> peers = {};
   final List<GroupChatItem> chat = [];
+
+  // LATE JOINER: sharing flags that arrived before the peer object existed
+  final Set<String> _pendingSharing = {};
 
   bool micOn = true;
   bool camOn = true;
@@ -132,6 +141,8 @@ class GroupCallService extends ChangeNotifier {
         // I'm the newcomer: I send an offer to everybody already in the room.
         for (final p in (m['peers'] as List)) {
           final peer = await _createPeer(p['id'], p['name']);
+          // LATE JOINER: if the server already tells us who is sharing, use it
+          if (p['sharing'] == true) peer.sharing = true;
           final offer = await peer.pc!.createOffer();
           await peer.pc!.setLocalDescription(offer);
           _send({'type': 'offer', 'to': peer.id, 'sdp': offer.sdp});
@@ -145,18 +156,26 @@ class GroupCallService extends ChangeNotifier {
       case 'offer':
         final from = m['from'] as String;
         final peer = peers[from] ?? await _createPeer(from, (m['name'] ?? from) as String);
-        await peer.pc!.setRemoteDescription(RTCSessionDescription(_boostVideoBitrate(m['sdp'] as String), 'offer'));
+        await peer.pc!.setRemoteDescription(
+            RTCSessionDescription(_boostVideoBitrate(m['sdp'] as String), 'offer'));
         peer.remoteSet = true;
         await _flushIce(peer);
         final answer = await peer.pc!.createAnswer();
         await peer.pc!.setLocalDescription(answer);
         _send({'type': 'answer', 'to': from, 'sdp': answer.sdp});
+
+        // LATE JOINER: a newcomer just connected to me while I'm sharing,
+        // so tell them (the earlier 'screen-state' was sent before they existed).
+        if (sharing) {
+          _send({'type': 'screen-state', 'to': from, 'sharing': true});
+        }
         break;
 
       case 'answer':
         final p = peers[m['from']];
         if (p == null) break;
-        await p.pc!.setRemoteDescription(RTCSessionDescription(_boostVideoBitrate(m['sdp'] as String), 'answer'));
+        await p.pc!.setRemoteDescription(
+            RTCSessionDescription(_boostVideoBitrate(m['sdp'] as String), 'answer'));
         p.remoteSet = true;
         await _flushIce(p);
         break;
@@ -174,11 +193,22 @@ class GroupCallService extends ChangeNotifier {
         break;
 
       case 'peer-left':
+        _pendingSharing.remove(m['id']);
         await _removePeer(m['id']);
         break;
 
       case 'screen-state':
-        peers[m['from']]?.sharing = m['sharing'] == true;
+        // LATE JOINER: remember the flag even if the peer object isn't created yet
+        final from = m['from'] as String;
+        final on = m['sharing'] == true;
+        final sp = peers[from];
+        if (sp != null) {
+          sp.sharing = on;
+        } else if (on) {
+          _pendingSharing.add(from);
+        } else {
+          _pendingSharing.remove(from);
+        }
         break;
 
       case 'chat':
@@ -245,6 +275,9 @@ class GroupCallService extends ChangeNotifier {
 
   Future<CallPeer> _createPeer(String id, String name) async {
     final peer = CallPeer(id, name);
+    // LATE JOINER: apply a sharing flag that arrived before this peer existed
+    peer.sharing = _pendingSharing.remove(id);
+
     await peer.renderer.initialize();
     final pc = await createPeerConnection(_config);
     peer.pc = pc;
@@ -261,17 +294,19 @@ class GroupCallService extends ChangeNotifier {
       }
     };
     pc.onTrack = (e) {
+      debugPrint('onTrack peer=$id kind=${e.track.kind} streams=${e.streams.length}');
       if (e.streams.isNotEmpty) {
         peer.renderer.srcObject = e.streams.first;
         notifyListeners();
       }
     };
     pc.onConnectionState = (s) {
+      debugPrint('connState peer=$id $s');
       if (s == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
         pc.restartIce();
       }
-      if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected && sharing) {
-        _tunePeerVideo(peer, screen: true);
+      if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        if (sharing) _tunePeerVideo(peer, screen: true);
       }
     };
 

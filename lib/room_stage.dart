@@ -3,6 +3,9 @@
 // - nobody sharing  -> equal grid of cameras
 // - someone sharing -> the shared screen fills the stage, cameras go to a thin strip
 // - tap the expand icon (or double-tap the shared screen) for full screen with pinch-zoom
+//
+// CHANGE vs previous version: _Presentation shows "Waiting for the teacher's
+// screen..." while no video frame has arrived yet (width == 0).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -154,9 +157,28 @@ class _MiniNote extends StatelessWidget {
 
 /// Shown to the person who is sharing, instead of a preview of their own
 /// screen (which would create the "mirror inside a mirror" effect).
-class _SharingBanner extends StatelessWidget {
+/// The icon pulses on purpose: screen capture only sends frames when the
+/// screen changes, so a moving element lets late joiners get a picture.
+class _SharingBanner extends StatefulWidget {
   final VoidCallback onStop;
   const _SharingBanner({required this.onStop});
+
+  @override
+  State<_SharingBanner> createState() => _SharingBannerState();
+}
+
+class _SharingBannerState extends State<_SharingBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +192,12 @@ class _SharingBanner extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.screen_share, color: Colors.green, size: 56),
+          ScaleTransition(
+            scale: Tween<double>(begin: 0.85, end: 1.15).animate(
+              CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+            ),
+            child: const Icon(Icons.screen_share, color: Colors.green, size: 56),
+          ),
           const SizedBox(height: 12),
           const Text('You are sharing your screen',
               style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
@@ -185,7 +212,7 @@ class _SharingBanner extends StatelessWidget {
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: onStop,
+            onPressed: widget.onStop,
             icon: const Icon(Icons.stop_screen_share),
             label: const Text('Stop sharing'),
           ),
@@ -221,6 +248,27 @@ class _Presentation extends StatelessWidget {
             RTCVideoView(
               renderer,
               objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+            ),
+            // waiting hint: shown until a real screen frame arrives. A frame with the
+            // camera size (640x480) is the old camera picture, not the shared screen.
+            ValueListenableBuilder<RTCVideoValue>(
+              valueListenable: renderer,
+              builder: (_, v, _) {
+                final isCameraFrame = (v.width == 640 && v.height == 480) ||
+                    (v.width == 480 && v.height == 640);
+                if (v.width != 0 && !isCameraFrame) return const SizedBox.shrink();
+                return Container(
+                  color: Colors.black,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(24),
+                  child: const Text(
+                    "Waiting for the teacher's screen...\n"
+                    '(ask the teacher to scroll or change the page once)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                );
+              },
             ),
             Positioned(
               left: 8,
@@ -370,29 +418,29 @@ class _FullScreenViewerState extends State<FullScreenViewer> {
                 left: 0,
                 right: 0,
                 child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '${widget.title}  |  pinch or double-tap to zoom',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Rotate',
-                        icon: const Icon(Icons.screen_rotation, color: Colors.white),
-                        onPressed: _rotate,
-                      ),
-                    ],
+                        Expanded(
+                          child: Text(
+                            '${widget.title}  |  pinch or double-tap to zoom',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Rotate',
+                          icon: const Icon(Icons.screen_rotation, color: Colors.white),
+                          onPressed: _rotate,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               ),
             ],
