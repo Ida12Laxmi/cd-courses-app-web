@@ -9,9 +9,7 @@ from .models import DeviceToken, Notification, Student
 
 log = logging.getLogger(__name__)
 
-# (teacher_id, subject) -> time of the last push, so tapping "Send invite" twice
-# (or reopening the room) doesn't spam students. Inviting a *different* subject
-# is not blocked.
+
 _last_sent = {}
 COOLDOWN_SECONDS = 120
 
