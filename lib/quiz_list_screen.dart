@@ -56,15 +56,50 @@ class _QuizListScreenState extends State<QuizListScreen> {
     }
   }
 
-  Future<void> _editQuiz(dynamic quiz) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreateQuizScreen(teacherId: widget.teacherId, existingQuiz: quiz),
+  /// Opens the create / edit quiz form as a popup dialog.
+  /// Pass [quiz] to edit, or leave it null to create a new quiz.
+  Future<void> _openQuizForm({dynamic quiz}) async {
+    final result = await showDialog<dynamic>(
+      context: context,
+      barrierDismissible: false, // tapping outside won't close it by accident
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 500,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          child: CreateQuizScreen(
+            teacherId: widget.teacherId,
+            existingQuiz: quiz,
+          ),
+        ),
       ),
     );
-    if (result == true) _fetchQuizzes();
+
+    if (result == null || !mounted) return; // closed without saving
+
+    if (result is Map && result['created'] == true) {
+      // New quiz created: go to the questions screen (full page),
+      // then refresh the list when coming back.
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => QuizQuestionsScreen(
+            quizId: result['quid'],
+            quizTitle: result['title'] ?? '',
+          ),
+        ),
+      );
+      _fetchQuizzes();
+    } else if (result == true) {
+      _fetchQuizzes(); // edited
+    }
   }
+
+  Future<void> _editQuiz(dynamic quiz) => _openQuizForm(quiz: quiz);
 
   Future<void> _confirmDeleteQuiz(dynamic quiz) async {
     final confirmed = await showDialog<bool>(
@@ -149,15 +184,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
         child: _buildBody(),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CreateQuizScreen(teacherId: widget.teacherId),
-            ),
-          );
-          if (result == true) _fetchQuizzes();
-        },
+        onPressed: () => _openQuizForm(),
         child: const Icon(Icons.add),
       ),
     );

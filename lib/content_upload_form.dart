@@ -39,6 +39,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
   PlatformFile? _pickedFile; // works on web (bytes) and mobile (path)
   bool _isLoading = false;
   bool _useLink = false;
+  String? _errorMessage; // shown inside the dialog
 
   bool get _isEditing => widget.existingItem != null;
 
@@ -113,19 +114,18 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
 
   Future<void> _submit() async {
     if (titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title is required')),
-      );
+      setState(() => _errorMessage = 'Title is required');
       return;
     }
     if (_isEditing && _existingId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Missing item id, cannot update')),
-      );
+      setState(() => _errorMessage = 'Missing item id, cannot update');
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     final uri = _isEditing
         ? Uri.parse('$_baseUrl/accounts/content/update/$_existingId/')
@@ -160,6 +160,7 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
 
       if (success) {
         if (mounted) {
+          // Shown on the list screen once the dialog closes.
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(_isEditing ? 'Updated successfully!' : 'Uploaded successfully!')),
           );
@@ -167,17 +168,14 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${_isEditing ? 'Update' : 'Upload'} failed: ${response.body}')),
-          );
+          setState(() => _errorMessage =
+              '${_isEditing ? 'Update' : 'Upload'} failed: ${response.body}');
         }
       }
     } catch (e) {
       debugPrint('Submit failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not upload: $e')),
-        );
+        setState(() => _errorMessage = 'Could not upload: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -188,28 +186,39 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
   Widget build(BuildContext context) {
     final bool isVideo = widget.contentType == 'video';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const AppLogo(radius: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '${_isEditing ? 'Edit' : 'Add'} ${widget.title}',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF013768),
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: true,
-      ),
-      body: Padding(
+    return Material(
+      color: Colors.white,
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: ListView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Header
+            Row(
+              children: [
+                const AppLogo(radius: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${_isEditing ? 'Edit' : 'Add'} ${widget.title}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF013768),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF013768)),
+                  onPressed: _isLoading ? null : () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 10),
+
             TextField(
               controller: titleController,
               decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
@@ -237,12 +246,14 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
               decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 20),
+
             if (isVideo)
               Row(
                 children: [
                   Expanded(
                     child: RadioListTile<bool>(
-                      title: const Text('YouTube Link'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('YouTube Link', style: TextStyle(fontSize: 13)),
                       value: true,
                       groupValue: _useLink,
                       onChanged: (v) => setState(() => _useLink = v!),
@@ -250,7 +261,8 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
                   ),
                   Expanded(
                     child: RadioListTile<bool>(
-                      title: const Text('Upload MP4'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Upload MP4', style: TextStyle(fontSize: 13)),
                       value: false,
                       groupValue: _useLink,
                       onChanged: (v) => setState(() => _useLink = v!),
@@ -265,14 +277,12 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
               )
             else
               Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _pickFile,
-                      icon: const Icon(Icons.attach_file),
-                      label: Text(_pickedFile == null ? 'Choose File' : 'File selected'),
-                    ),
+                  ElevatedButton.icon(
+                    onPressed: _pickFile,
+                    icon: const Icon(Icons.attach_file),
+                    label: Text(_pickedFile == null ? 'Choose File' : 'File selected'),
                   ),
                   if (_pickedFile != null)
                     Padding(
@@ -289,9 +299,18 @@ class _ContentUploadFormState extends State<ContentUploadForm> {
                     ),
                 ],
               ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
+
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+
             SizedBox(
-              width: double.infinity,
               height: 50,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submit,

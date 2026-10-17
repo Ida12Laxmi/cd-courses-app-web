@@ -106,23 +106,38 @@ class _ContentListScreenState extends State<ContentListScreen> {
     }
   }
 
-  Future<void> _editItem(dynamic item) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ContentUploadForm(
-          teacherId: widget.teacherId,
-          contentType: widget.contentType,
-          title: widget.title,
-          existingItem: item,
+  /// Opens the upload / edit form as a popup dialog.
+  /// Pass [item] to edit an existing entry, or leave it null to add a new one.
+  Future<void> _openUploadForm({dynamic item}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // tapping outside won't close it by accident
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 500,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          child: ContentUploadForm(
+            teacherId: widget.teacherId,
+            contentType: widget.contentType,
+            title: widget.title,
+            existingItem: item,
+          ),
         ),
       ),
     );
 
-    if (result == true || result == null) {
+    // Refresh only after a successful save.
+    if (result == true) {
       _fetchContent();
     }
   }
+
+  Future<void> _editItem(dynamic item) => _openUploadForm(item: item);
 
   Future<void> _confirmDelete(dynamic item) async {
     final confirmed = await showDialog<bool>(
@@ -208,21 +223,7 @@ class _ContentListScreenState extends State<ContentListScreen> {
         child: _buildBody(),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ContentUploadForm(
-                teacherId: widget.teacherId,
-                contentType: widget.contentType,
-                title: widget.title,
-              ),
-            ),
-          );
-          if (result == true || result == null) {
-            _fetchContent();
-          }
-        },
+        onPressed: () => _openUploadForm(),
         child: const Icon(Icons.add),
       ),
     );
