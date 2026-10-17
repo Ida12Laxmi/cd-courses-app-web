@@ -18,10 +18,6 @@ class SubmissionScreen extends StatefulWidget {
 }
 
 class _SubmissionScreenState extends State<SubmissionScreen> {
-  final _titleController = TextEditingController();
-  final _noteController = TextEditingController();
-  PlatformFile? _pickedFile; // works on web (bytes) and mobile (path)
-  bool _submitting = false;
   late Future<List<dynamic>> _questions;
   late Future<List<dynamic>> _history;
 
@@ -36,13 +32,6 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
         : ApiService.fetchProjectSubmissions(widget.studentId);
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _noteController.dispose();
-    super.dispose();
-  }
-
   void _refreshHistory() {
     setState(() {
       _history = _isAssignment
@@ -51,154 +40,40 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
     });
   }
 
-  Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      withData: kIsWeb, // bytes are required on web
-    );
-    if (result != null) {
-      setState(() => _pickedFile = result.files.single);
-    }
-  }
+  // ---- Submit / edit popup ----
 
-  Future<void> _submit() async {
-    if (_titleController.text.trim().isEmpty || _pickedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a title and pick a file first.')),
-      );
-      return;
-    }
-    setState(() => _submitting = true);
-    try {
-      if (_isAssignment) {
-        await ApiService.submitAssignment(
-          studentId: widget.studentId,
-          title: _titleController.text.trim(),
-          file: _pickedFile!,
-          description: _noteController.text.trim(),
-        );
-      } else {
-        await ApiService.submitProject(
-          studentId: widget.studentId,
-          title: _titleController.text.trim(),
-          file: _pickedFile!,
-          description: _noteController.text.trim(),
-        );
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted successfully.')));
-        _titleController.clear();
-        _noteController.clear();
-        setState(() => _pickedFile = null);
-        _refreshHistory();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Submission failed: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  // ---- Edit own submission ----
-
-  Future<void> _openEditDialog(dynamic submission) async {
-    final editTitleController = TextEditingController(text: submission['title'] ?? '');
-    final editNoteController = TextEditingController(text: submission['description'] ?? '');
-    PlatformFile? newFile;
+  /// Opens the submit form as a popup. Pass [submission] to edit an existing one.
+  Future<void> _openSubmitForm({dynamic submission}) async {
+    final isEditing = submission != null;
 
     final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Edit submission'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: editTitleController,
-                  decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: editNoteController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Note', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final result = await FilePicker.platform.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['pdf'],
-                          withData: kIsWeb,
-                        );
-                        if (result != null) {
-                          setDialogState(() => newFile = result.files.single);
-                        }
-                      },
-                      icon: const Icon(Icons.attach_file),
-                      label: const Text('Replace file'),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        newFile?.name ?? 'Keep current file',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+      barrierDismissible: false, // tapping outside won't close it by accident
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 500,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
-          ],
+          child: _SubmissionFormDialog(
+            studentId: widget.studentId,
+            contentType: widget.contentType,
+            existingSubmission: submission,
+          ),
         ),
       ),
     );
 
-    if (saved != true) return;
-    if (editTitleController.text.trim().isEmpty) {
+    if (saved == true) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title cannot be empty.')));
-      }
-      return;
-    }
-
-    try {
-      if (_isAssignment) {
-        await ApiService.updateOwnAssignment(
-          asid: submission['asid'],
-          studentId: widget.studentId,
-          title: editTitleController.text.trim(),
-          description: editNoteController.text.trim(),
-          file: newFile,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isEditing ? 'Submission updated.' : 'Submitted successfully.')),
         );
-      } else {
-        await ApiService.updateOwnProject(
-          psid: submission['psid'],
-          studentId: widget.studentId,
-          title: editTitleController.text.trim(),
-          description: editNoteController.text.trim(),
-          file: newFile,
-        );
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submission updated.')));
       }
       _refreshHistory();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
-      }
     }
   }
 
@@ -297,8 +172,14 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openSubmitForm(),
+        icon: const Icon(Icons.upload_file),
+        label: Text('Submit ${_isAssignment ? 'Assignment' : 'Project'}'),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        // Extra bottom padding so the floating button never covers the last card.
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
         children: [
           Text('Given by your teacher', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -325,46 +206,6 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
             },
           ),
           const Divider(height: 32),
-          Text('Submit your work', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _titleController,
-            decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _noteController,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: _pickFile,
-                icon: const Icon(Icons.attach_file),
-                label: const Text('Pick file'),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  _pickedFile?.name ?? 'No file selected',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _submitting ? null : _submit,
-              child: _submitting
-                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Submit'),
-            ),
-          ),
-          const Divider(height: 32),
           Text('Past submissions', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           FutureBuilder<List<dynamic>>(
@@ -374,7 +215,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
                 return const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator());
               }
               final items = snapshot.data ?? [];
-              if (items.isEmpty) return const Text('No submissions yet.');
+              if (items.isEmpty) return const Text('No submissions yet. Tap the button below to submit.');
               return Column(
                 children: items.map((s) {
                   final feedback = s['teacher_feedback']?.toString() ?? '';
@@ -393,7 +234,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             TextButton.icon(
-                              onPressed: () => _openEditDialog(s),
+                              onPressed: () => _openSubmitForm(submission: s),
                               icon: const Icon(Icons.edit, size: 18),
                               label: const Text('Edit'),
                             ),
@@ -412,6 +253,224 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Popup form used for both submitting new work and editing an existing
+/// submission. Pops with `true` after a successful save.
+class _SubmissionFormDialog extends StatefulWidget {
+  final int studentId;
+  final String contentType; // 'assignment' | 'project'
+  final dynamic existingSubmission; // pass a submission map to edit
+
+  const _SubmissionFormDialog({
+    required this.studentId,
+    required this.contentType,
+    this.existingSubmission,
+  });
+
+  @override
+  State<_SubmissionFormDialog> createState() => _SubmissionFormDialogState();
+}
+
+class _SubmissionFormDialogState extends State<_SubmissionFormDialog> {
+  final _titleController = TextEditingController();
+  final _noteController = TextEditingController();
+  PlatformFile? _pickedFile; // works on web (bytes) and mobile (path)
+  bool _submitting = false;
+  String? _errorMessage;
+
+  bool get _isAssignment => widget.contentType == 'assignment';
+  bool get _isEditing => widget.existingSubmission != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      _titleController.text = widget.existingSubmission['title']?.toString() ?? '';
+      _noteController.text = widget.existingSubmission['description']?.toString() ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: kIsWeb, // bytes are required on web
+    );
+    if (result != null) {
+      setState(() => _pickedFile = result.files.single);
+    }
+  }
+
+  Future<void> _submit() async {
+    final title = _titleController.text.trim();
+    final note = _noteController.text.trim();
+
+    if (title.isEmpty) {
+      setState(() => _errorMessage = 'Please add a title.');
+      return;
+    }
+    // A file is required for a new submission; optional when editing.
+    if (!_isEditing && _pickedFile == null) {
+      setState(() => _errorMessage = 'Please pick a file.');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      if (_isEditing) {
+        if (_isAssignment) {
+          await ApiService.updateOwnAssignment(
+            asid: widget.existingSubmission['asid'],
+            studentId: widget.studentId,
+            title: title,
+            description: note,
+            file: _pickedFile,
+          );
+        } else {
+          await ApiService.updateOwnProject(
+            psid: widget.existingSubmission['psid'],
+            studentId: widget.studentId,
+            title: title,
+            description: note,
+            file: _pickedFile,
+          );
+        }
+      } else {
+        if (_isAssignment) {
+          await ApiService.submitAssignment(
+            studentId: widget.studentId,
+            title: title,
+            file: _pickedFile!,
+            description: note,
+          );
+        } else {
+          await ApiService.submitProject(
+            studentId: widget.studentId,
+            title: title,
+            file: _pickedFile!,
+            description: note,
+          );
+        }
+      }
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage = '${_isEditing ? 'Update' : 'Submission'} failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String typeLabel = _isAssignment ? 'Assignment' : 'Project';
+
+    return Material(
+      color: Colors.white,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Row(
+              children: [
+                const AppLogo(radius: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _isEditing ? 'Edit submission' : 'Submit $typeLabel',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF013768),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF013768)),
+                  onPressed: _submitting ? null : () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 10),
+
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _noteController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: _isEditing ? 'Note' : 'Note (optional)',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _pickFile,
+                  icon: const Icon(Icons.attach_file),
+                  label: Text(_isEditing ? 'Replace file' : 'Pick file'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _pickedFile?.name ?? (_isEditing ? 'Keep current file' : 'No file selected'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _submitting ? null : _submit,
+                child: _submitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(_isEditing ? 'Save' : 'Submit'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
