@@ -177,48 +177,49 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
   }
 
   Future<void> _joinZoom({
-  required String meetingNumber,
-  required String passcode,
-}) async {
-  if (_joiningZoom) return;
-  setState(() => _joiningZoom = true);
+    required String meetingNumber,
+    required String passcode,
+  }) async {
+    if (_joiningZoom) return;
+    setState(() => _joiningZoom = true);
 
-  final name = (widget.teacherName != null && widget.teacherName!.isNotEmpty)
-      ? widget.teacherName!
-      : 'Teacher';
+    final name = (widget.teacherName != null && widget.teacherName!.isNotEmpty)
+        ? widget.teacherName!
+        : 'Teacher';
 
-  try {
-    // Ask for camera + microphone before joining
-    final statuses = await [
-      Permission.camera,
-      Permission.microphone,
-    ].request();
+    try {
+      // Ask for camera + microphone before joining
+      final statuses = await [
+        Permission.camera,
+        Permission.microphone,
+      ].request();
 
-    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
-    if (!micGranted && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Microphone permission denied. You will not be heard in class.'),
-        ),
+      final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+      if (!micGranted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Microphone permission denied. You will not be heard in class.'),
+          ),
+        );
+      }
+
+      await _zoom.join(
+        meetingNumber: meetingNumber,
+        password: passcode,
+        // "id|name" so the webhook can match attendance to this teacher
+        displayName: '${widget.teacherId}|$name',
+        role: 1,
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    } finally {
+      if (mounted) setState(() => _joiningZoom = false);
     }
-
-    await _zoom.join(
-      meetingNumber: meetingNumber,
-      password: passcode,
-      // "id|name" so the webhook can match attendance to this teacher
-      displayName: '${widget.teacherId}|$name',
-      role: 1,
-    );
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$e')),
-    );
-  } finally {
-    if (mounted) setState(() => _joiningZoom = false);
   }
-}
 
   // ---------------------------------------------------------------------------
   // Home tab
@@ -264,72 +265,72 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
   }
 
   Widget _buildGroupRoomCard() {
-  return Card(
-    elevation: 3,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => GroupRoomScreen(
-            teacherId: widget.teacherId,
-            role: 'teacher',
-            userId: widget.teacherId,
-          ),
-        ),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.groups, size: 40, color: Color(0xFF0B8081)),
-          SizedBox(height: 10),
-          Text(
-            'Class Room',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF013768),
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => GroupRoomScreen(
+              teacherId: widget.teacherId,
+              role: 'teacher',
+              userId: widget.teacherId,
             ),
           ),
-        ],
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.groups, size: 40, color: Color(0xFF0B8081)),
+            SizedBox(height: 10),
+            Text(
+              'Class Room',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF013768),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildMeetingsCard() {
-  return Card(
-    elevation: 3,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TeacherMeetingHome(teacherId: widget.teacherId),
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TeacherMeetingHome(teacherId: widget.teacherId),
+          ),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.video_call, size: 40, color: Color(0xFF0B8081)),
+            SizedBox(height: 10),
+            Text(
+              'Meetings',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF013768),
+              ),
+            ),
+          ],
         ),
       ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.video_call, size: 40, color: Color(0xFF0B8081)),
-          SizedBox(height: 10),
-          Text(
-            'Meetings',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF013768),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildHomeTab(BuildContext context) {
     return Scaffold(
@@ -352,8 +353,8 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
               ),
           ],
         ),
-        // Only one-off actions live here now — search and logout aren't
-        // tab destinations, so they don't belong in the bottom bar.
+        // Only one-off actions live here — search and logout aren't
+        // tab destinations, so they don't belong in the sidebar.
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -376,7 +377,7 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: GridView.builder(
-          // +2 for the extra "Join class" (Zoom) and "Group Rooms" cards at the end
+          // +2 for the extra "Meetings" and "Class Room" cards at the end
           itemCount: contentTypes.length + 2,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
@@ -389,7 +390,7 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
               return _buildMeetingsCard();
             }
             if (index == contentTypes.length + 1) {
-              return  _buildGroupRoomCard();
+              return _buildGroupRoomCard();
             }
 
             final item = contentTypes[index];
@@ -471,6 +472,54 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Sidebar (icon only)
+  // ---------------------------------------------------------------------------
+
+  NavigationRailDestination _railItem(IconData icon, String tooltip) {
+    return NavigationRailDestination(
+      // Tooltip shows the name on long-press (phone) or hover (web/desktop).
+      icon: Tooltip(message: tooltip, child: Icon(icon)),
+      label: Text(tooltip), // required by Flutter, hidden because labelType = none
+    );
+  }
+
+  Widget _buildSideBar() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Scrolls instead of overflowing on short screens (e.g. landscape).
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _goToTab,
+                extended: false,
+                labelType: NavigationRailLabelType.none,
+                minWidth: 60,
+                backgroundColor: const Color(0xFFF8F9FA),
+                indicatorColor: const Color(0x1F013768),
+                selectedIconTheme:
+                    const IconThemeData(color: Color(0xFF013768)),
+                unselectedIconTheme:
+                    const IconThemeData(color: Color(0xFF0B8081)),
+                destinations: [
+                  _railItem(Icons.home, 'Home'),
+                  _railItem(Icons.people, 'Students'),
+                  _railItem(Icons.quiz, 'Quizzes'),
+                  _railItem(Icons.qr_code, 'QR'),
+                  _railItem(Icons.notifications, 'Alerts'),
+                  _railItem(Icons.password, 'Password'),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabs = <Widget>[
@@ -494,31 +543,22 @@ class _TeacherdashboardState extends State<Teacherdashboard> {
         }
       },
       child: Scaffold(
-        body: PageView(
-          controller: _pageController,
-          onPageChanged: (index) => setState(() => _currentIndex = index),
-          // Leaving default ScrollPhysics (not NeverScrollableScrollPhysics)
-          // is what enables swipe-to-change-tab, on top of tap-to-slide.
-          children: tabs,
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _goToTab,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFF013768),
-          unselectedItemColor: const Color(0xFF0B8081),
-          backgroundColor: const Color(0xFFF8F9FA),
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Students'),
-            BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'Quizzes'),
-            BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: 'QR'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.notifications), label: 'Alerts'),
-            BottomNavigationBarItem(icon: Icon(Icons.password), label: 'Password'),
-          ],
+        body: SafeArea(
+          child: Row(
+            children: [
+              _buildSideBar(),
+              const VerticalDivider(width: 1, thickness: 1),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) =>
+                      setState(() => _currentIndex = index),
+                  // Default ScrollPhysics keeps swipe-to-change-tab working.
+                  children: tabs,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
