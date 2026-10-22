@@ -174,44 +174,44 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 
   Widget _buildGroupRoomCard() {
-  return InkWell(
-    borderRadius: BorderRadius.circular(16),
-    onTap: () => Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => GroupRoomScreen(
-          teacherId: widget.teacherId,
-          role: 'student',
-          userId: widget.studentId,
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GroupRoomScreen(
+            teacherId: widget.teacherId,
+            role: 'student',
+            userId: widget.studentId,
+          ),
         ),
       ),
-    ),
-    child: Card(
-      elevation: 3,
-      shadowColor: Colors.black26,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.groups, size: 40, color: Color(0xFF0B8081)),
-          SizedBox(height: 8),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              'Class Room',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF013768),
+      child: Card(
+        elevation: 3,
+        shadowColor: Colors.black26,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.groups, size: 40, color: Color(0xFF0B8081)),
+            SizedBox(height: 8),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'Class Room',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF013768),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Navigation helpers
@@ -339,15 +339,15 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   crossAxisSpacing: 16,
                   childAspectRatio: 1.1,
                 ),
-                // +1 for the extra "My classes" (Zoom) card at the end
+                // +2 for the extra "My classes" (Zoom) and "Class Room" cards at the end
                 itemCount: contentTypes.length + 2,
                 itemBuilder: (context, i) {
                   if (i == contentTypes.length) {
                     return _buildZoomCard();
                   }
                   if (i == contentTypes.length + 1) {
-                      return _buildGroupRoomCard();
-            }
+                    return _buildGroupRoomCard();
+                  }
 
                   final item = contentTypes[i];
                   return InkWell(
@@ -380,6 +380,51 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Sidebar (icon only)
+  // ---------------------------------------------------------------------------
+
+  NavigationRailDestination _railItem(IconData icon, String tooltip) {
+    return NavigationRailDestination(
+      // Tooltip shows the name on long-press (phone) or hover (web/desktop).
+      icon: Tooltip(message: tooltip, child: Icon(icon)),
+      label: Text(tooltip), // required by Flutter, hidden because labelType = none
+    );
+  }
+
+  Widget _buildSideBar() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Scrolls instead of overflowing on short screens (e.g. landscape).
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _goToTab,
+                extended: false,
+                labelType: NavigationRailLabelType.none,
+                minWidth: 60,
+                backgroundColor: const Color(0xFFF8F9FA),
+                indicatorColor: const Color(0x1F013768),
+                selectedIconTheme:
+                    const IconThemeData(color: Color(0xFF013768)),
+                unselectedIconTheme:
+                    const IconThemeData(color: Color(0xFF0B8081)),
+                destinations: [
+                  _railItem(Icons.home, 'Home'),
+                  _railItem(Icons.quiz, 'Quizzes'),
+                  _railItem(Icons.password, 'Password'),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabs = <Widget>[
@@ -404,26 +449,22 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         }
       },
       child: Scaffold(
-        body: PageView(
-          controller: _pageController,
-          onPageChanged: (index) => setState(() => _currentIndex = index),
-          // Leaving default ScrollPhysics (not NeverScrollableScrollPhysics)
-          // is what enables swipe-to-change-tab, on top of tap-to-slide.
-          children: tabs,
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _goToTab,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFF013768),
-          unselectedItemColor: const Color(0xFF0B8081),
-          backgroundColor: const Color(0xFFF8F9FA),
-          showUnselectedLabels: true,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'Quizzes'),
-            BottomNavigationBarItem(icon: Icon(Icons.password), label: 'Password'),
-          ],
+        body: SafeArea(
+          child: Row(
+            children: [
+              _buildSideBar(),
+              const VerticalDivider(width: 1, thickness: 1),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) =>
+                      setState(() => _currentIndex = index),
+                  // Default ScrollPhysics keeps swipe-to-change-tab working.
+                  children: tabs,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
